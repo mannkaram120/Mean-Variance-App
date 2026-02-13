@@ -1,6 +1,6 @@
 import io
 from datetime import date, timedelta
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,12 +9,189 @@ import streamlit as st
 import yfinance as yf
 from scipy.optimize import minimize
 
+# Popular US stock tickers for autocomplete
+POPULAR_TICKERS = [
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH",
+    "JNJ", "V", "PG", "JPM", "MA", "HD", "DIS", "BAC", "ADBE", "NFLX",
+    "XOM", "CVX", "WMT", "LLY", "AVGO", "COST", "MRK", "ABBV", "PEP", "TMO",
+    "CSCO", "ACN", "MCD", "ABT", "CRM", "DHR", "VZ", "ADP", "WFC", "LIN",
+    "NKE", "BMY", "PM", "TXN", "RTX", "QCOM", "UPS", "HON", "AMGN", "DE",
+    "LOW", "INTU", "SPGI", "AMAT", "GE", "BKNG", "AXP", "SBUX", "GILD", "ADI",
+    "ISRG", "TJX", "C", "BLK", "MDT", "VRTX", "ZTS", "REGN", "CME", "SCHW",
+    "AAL", "AAP", "ABBV", "ABC", "ABMD", "ABT", "ACGL", "ACHC", "ACI", "ACMR",
+    "ADBE", "ADM", "ADP", "ADSK", "AEE", "AEP", "AES", "AFL", "A", "AIG",
+    "AIZ", "AJG", "AKAM", "ALB", "ALGN", "ALK", "ALL", "ALLE", "AMAT", "AMCR",
+    "AMD", "AME", "AMGN", "AMP", "AMT", "AMZN", "ANET", "ANSS", "ANTM", "AON",
+    "AOS", "APA", "APD", "APH", "APTV", "ARE", "ATO", "ATVI", "AVB", "AVGO",
+    "AVY", "AWK", "AXP", "AZO", "BA", "BAC", "BALL", "BAX", "BBWI", "BBY",
+    "BDX", "BEN", "BF.B", "BIIB", "BIO", "BK", "BKNG", "BKR", "BLK", "BLL",
+    "BMY", "BR", "BRK.B", "BSX", "BWA", "BXP", "C", "CAG", "CAH", "CAM",
+    "CAT", "CB", "CBOE", "CBRE", "CCI", "CCL", "CDAY", "CDNS", "CDW", "CE",
+    "CF", "CFG", "CHD", "CHRW", "CHTR", "CI", "CINF", "CL", "CLH", "CLX",
+    "CMA", "CMCSA", "CME", "CMG", "CMI", "CMS", "CNC", "CNP", "COF", "COO",
+    "COP", "COST", "CPB", "CPRT", "CPT", "CRL", "CRM", "CSCO", "CSGP", "CSX",
+    "CTAS", "CTLT", "CTRA", "CTSH", "CTVA", "CUBE", "CURI", "CVS", "CVX", "CZR",
+    "D", "DAL", "DD", "DDOG", "DE", "DFS", "DG", "DGX", "DHI", "DHR",
+    "DIS", "DISCA", "DISH", "DLR", "DLTR", "DOC", "DOCN", "DOCU", "DOV", "DOW",
+    "DPZ", "DRE", "DRI", "DT", "DUK", "DVA", "DVN", "DXCM", "DXPE", "EA",
+    "EBAY", "ECL", "ED", "EFX", "EG", "EIX", "EL", "ELAN", "EMN", "EMR",
+    "ENPH", "ENTG", "EOG", "EPAM", "EQH", "EQIX", "EQR", "EQT", "ES", "ESS",
+    "ETN", "ETR", "EVRG", "EW", "EXAS", "EXC", "EXPD", "EXPE", "EXR", "F",
+    "FANG", "FAST", "FBHS", "FCX", "FDS", "FDX", "FE", "FFIV", "FERG", "FIS",
+    "FISV", "FITB", "FIVE", "FIVN", "FLT", "FMC", "FNF", "FOX", "FOXA", "FRC",
+    "FRT", "FSLR", "FTNT", "FTV", "FWRD", "G", "GATX", "GD", "GE", "GEHC",
+    "GEN", "GILD", "GIS", "GL", "GLW", "GM", "GNRC", "GOOG", "GOOGL", "GPC",
+    "GPN", "GRMN", "GS", "GTLS", "HAL", "HAS", "HBAN", "HCA", "HD", "HES",
+    "HIG", "HII", "HLT", "HOLX", "HON", "HPE", "HPQ", "HRL", "HSIC", "HST",
+    "HSY", "HUBB", "HUM", "HWM", "HXL", "IBM", "ICE", "IDXX", "IEX", "IFF",
+    "ILMN", "INCY", "INFO", "INTC", "INTU", "INVH", "IP", "IPG", "IQV", "IR",
+    "IRM", "ISRG", "IT", "ITT", "ITW", "IVZ", "J", "JBHT", "JBL", "JCI",
+    "JKHY", "JNJ", "JNPR", "JPM", "K", "KDP", "KHC", "KIM", "KLAC", "KMB",
+    "KMI", "KMX", "KO", "KR", "KRC", "KRX", "KSS", "KVUE", "L", "LAMR",
+    "LBRDK", "LBRT", "LDOS", "LEN", "LEVI", "LFC", "LH", "LHX", "LIN", "LKQ",
+    "LLY", "LMT", "LNC", "LNT", "LOW", "LPLA", "LRCX", "LSI", "LULU", "LUV",
+    "LVS", "LW", "LYB", "LYV", "MA", "MAA", "MANH", "MAR", "MAS", "MASI",
+    "MCD", "MCHP", "MCK", "MCO", "MDLZ", "MDT", "MELI", "MET", "META", "MGM",
+    "MHK", "MKC", "MKTX", "MLI", "MLM", "MMC", "MMM", "MNST", "MO", "MOH",
+    "MOS", "MPC", "MPWR", "MRK", "MRNA", "MRO", "MRVL", "MS", "MSCI", "MSFT",
+    "MSI", "MTB", "MTCH", "MTD", "MU", "MUR", "NCLH", "NDAQ", "NDSN", "NEE",
+    "NEM", "NFLX", "NI", "NKE", "NOC", "NOV", "NOW", "NRG", "NSC", "NTAP",
+    "NTRS", "NUE", "NVDA", "NVR", "NWS", "NWSA", "NXST", "O", "ODFL", "OGN",
+    "OKE", "OMC", "ON", "ONON", "ORCL", "ORLY", "OTIS", "OXY", "PANW", "PARA",
+    "PAYC", "PAYX", "PCAR", "PCG", "PCH", "PDD", "PEAK", "PEG", "PENN", "PEP",
+    "PFE", "PG", "PGR", "PH", "PHM", "PKG", "PKI", "PLD", "PM", "PNC",
+    "PNR", "PNW", "POOL", "POR", "PPG", "PPL", "PRGO", "PRU", "PSA", "PSX",
+    "PTC", "PTON", "PWR", "PXD", "PYPL", "QCOM", "QRVO", "R", "RCL", "RE",
+    "REG", "REGN", "RF", "RHI", "RJF", "RL", "RMD", "ROK", "ROL", "ROP",
+    "ROST", "RPRX", "RSG", "RTX", "RVTY", "RYAN", "S", "SAIA", "SBAC", "SBUX",
+    "SCHW", "SCI", "SEIC", "SHW", "SIRI", "SJM", "SLB", "SNA", "SNPS", "SO",
+    "SPG", "SPGI", "SRE", "STE", "STLD", "STT", "STX", "STZ", "SWK", "SWKS",
+    "SYF", "SYK", "SYY", "T", "TAP", "TDG", "TDY", "TECH", "TEL", "TER",
+    "TFC", "TFX", "TGT", "TJX", "TKO", "TMO", "TMUS", "TPG", "TROW", "TRV",
+    "TSCO", "TSLA", "TSN", "TT", "TTD", "TTWO", "TXN", "TXT", "TYL", "U",
+    "UAL", "UBER", "UDR", "UHS", "ULTA", "UNH", "UNP", "UPS", "URI", "USB",
+    "V", "VFC", "VICI", "VLO", "VMC", "VRSK", "VRSN", "VRTX", "VSAT", "VST",
+    "VTR", "VTRS", "VZ", "WAB", "WAT", "WBA", "WBD", "WBS", "WCC", "WDAY",
+    "WDC", "WEC", "WELL", "WEX", "WFC", "WHR", "WM", "WMB", "WMT", "WRB",
+    "WRK", "WSC", "WSO", "WST", "WTW", "WWD", "WY", "WYNN", "XEL", "XOM",
+    "XRAY", "XYL", "YUM", "ZBH", "ZBRA", "ZION", "ZTS"
+]
+
 
 st.set_page_config(
-    page_title="Efficient Frontier & CML",
+    page_title="Build Your Smart Investment Portfolio",
     page_icon="💹",
     layout="wide",
 )
+
+# Initialize session state for selected tickers
+if "selected_tickers" not in st.session_state:
+    # Default tickers
+    st.session_state.selected_tickers = ["AAPL", "MSFT", "GOOG"]
+
+
+def filter_tickers(search_term: str, ticker_list: List[str], max_results: int = 10) -> List[str]:
+    """Filter tickers based on case-insensitive search term."""
+    if not search_term:
+        return ticker_list[:max_results]
+    search_upper = search_term.upper().strip()
+    filtered = [t for t in ticker_list if search_upper in t.upper()]
+    return filtered[:max_results]
+
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def fetch_ticker_suggestions(search_term: str) -> List[str]:
+    """
+    Optional: Fetch ticker suggestions dynamically from a public API.
+    Currently returns empty list - can be implemented with yfinance or other APIs.
+    """
+    # Example implementation (commented out):
+    # try:
+    #     # Using yfinance to search (if available)
+    #     # Note: yfinance doesn't have a direct search API, so this is a placeholder
+    #     # You could use other APIs like Alpha Vantage, IEX Cloud, etc.
+    #     pass
+    # except Exception:
+    #     pass
+    return []
+
+
+def ticker_autocomplete_component() -> str:
+    """Create an autocomplete ticker selector component."""
+    st.write("**Search and select stock tickers**")
+    
+    # Search input
+    search_term = st.text_input(
+        "Type to search tickers (e.g., 'AA' for AAPL, AAL, etc.)",
+        value="",
+        key="ticker_search",
+        placeholder="Start typing...",
+        help="Type letters to see matching stock tickers. Click suggestions to add them, or type a ticker and press Enter to add manually.",
+    )
+    
+    # Filter tickers based on search
+    filtered_tickers = filter_tickers(search_term, POPULAR_TICKERS, max_results=15)
+    
+    # Show suggestions if there's a search term
+    if search_term.strip():
+        search_upper = search_term.strip().upper()
+        # Check if the search term itself is a valid ticker (exact match or in filtered list)
+        exact_match = search_upper in POPULAR_TICKERS
+        
+        if filtered_tickers:
+            st.caption(f"Found {len(filtered_tickers)} matching ticker(s):")
+            # Create columns for ticker buttons
+            cols = st.columns(min(5, len(filtered_tickers)))
+            for idx, ticker in enumerate(filtered_tickers):
+                col_idx = idx % 5
+                with cols[col_idx]:
+                    if st.button(ticker, key=f"suggest_{ticker}", use_container_width=True):
+                        if ticker not in st.session_state.selected_tickers:
+                            st.session_state.selected_tickers.append(ticker)
+                            st.rerun()
+            
+            # If search term is exact match but not in filtered (shouldn't happen), add it
+            if exact_match and search_upper not in st.session_state.selected_tickers:
+                if st.button(f"Add '{search_upper}'", key="add_exact_match", type="primary"):
+                    st.session_state.selected_tickers.append(search_upper)
+                    st.rerun()
+        else:
+            # No matches found, but allow manual entry if it looks like a ticker (3-5 uppercase letters)
+            if len(search_upper) >= 1 and len(search_upper) <= 5 and search_upper.isalpha():
+                st.caption(f"No matching tickers found. You can add '{search_upper}' manually:")
+                if st.button(f"Add '{search_upper}' as ticker", key="add_manual_ticker", type="primary"):
+                    if search_upper not in st.session_state.selected_tickers:
+                        st.session_state.selected_tickers.append(search_upper)
+                        st.rerun()
+            else:
+                st.caption("No matching tickers found. Try a different search or enter a valid ticker symbol (3-5 letters).")
+    
+    # Display selected tickers
+    if st.session_state.selected_tickers:
+        st.write(f"**Selected tickers ({len(st.session_state.selected_tickers)}):**")
+        # Display tickers in a cleaner format
+        ticker_display = " • ".join(st.session_state.selected_tickers)
+        st.markdown(f"`{ticker_display}`")
+        
+        # Remove buttons in a grid
+        num_selected = len(st.session_state.selected_tickers)
+        remove_cols = st.columns(min(6, num_selected))
+        for idx, ticker in enumerate(st.session_state.selected_tickers):
+            col_idx = idx % 6
+            with remove_cols[col_idx]:
+                if st.button(f"Remove {ticker}", key=f"remove_{ticker}", use_container_width=True):
+                    st.session_state.selected_tickers.remove(ticker)
+                    st.rerun()
+        
+        # Clear all button
+        if st.button("🗑️ Clear all selections", key="clear_all_tickers", type="secondary", use_container_width=True):
+            st.session_state.selected_tickers = []
+            st.rerun()
+    else:
+        st.info("💡 No tickers selected. Start typing above to search and add tickers.")
+    
+    # Return comma-separated string for backend compatibility
+    return ", ".join(st.session_state.selected_tickers)
 
 
 @st.cache_data(show_spinner=False)
@@ -196,73 +373,150 @@ def draw_frontier_plot(
     frontier: pd.DataFrame,
     tan_point: Dict[str, float],
     risk_free_rate: float,
+    min_vol_point: Dict[str, float],
+    max_ret_point: Dict[str, float],
 ) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(
         frontier["target_volatility"],
         frontier["target_return"],
-        label="Efficient Frontier",
         color="#1f77b4",
+        linewidth=2,
     )
+    # Minimum Risk Portfolio (Low Risk)
+    ax.scatter(
+        min_vol_point["volatility"],
+        min_vol_point["return"],
+        marker="o",
+        color="#2ca02c",
+        s=180,
+        zorder=5,
+        edgecolors="darkgreen",
+        linewidths=2,
+    )
+    ax.annotate(
+        "Minimum Risk\n(Low Risk)",
+        (min_vol_point["volatility"], min_vol_point["return"]),
+        xytext=(10, 10),
+        textcoords="offset points",
+        fontsize=9,
+        color="#2ca02c",
+    )
+    # Maximum Sharpe Portfolio (Balanced)
     ax.scatter(
         tan_point["volatility"],
         tan_point["return"],
         marker="*",
         color="#ff7f0e",
-        s=200,
-        label="Tangency Portfolio",
+        s=280,
+        zorder=5,
+        edgecolors="darkorange",
+        linewidths=2,
+    )
+    ax.annotate(
+        "Best Risk–Return\n(Balanced)",
+        (tan_point["volatility"], tan_point["return"]),
+        xytext=(10, 10),
+        textcoords="offset points",
+        fontsize=9,
+        color="#ff7f0e",
+    )
+    # High Return portfolio
+    ax.scatter(
+        max_ret_point["volatility"],
+        max_ret_point["return"],
+        marker="^",
+        color="#d62728",
+        s=180,
+        zorder=5,
+        edgecolors="darkred",
+        linewidths=2,
+    )
+    ax.annotate(
+        "High Return",
+        (max_ret_point["volatility"], max_ret_point["return"]),
+        xytext=(10, 10),
+        textcoords="offset points",
+        fontsize=9,
+        color="#d62728",
     )
     if tan_point["volatility"] > 0:
         max_sigma = max(frontier["target_volatility"].max(), tan_point["volatility"]) * 1.1
         sigma_range = np.linspace(0, max_sigma, 25)
         cml = risk_free_rate + (tan_point["return"] - risk_free_rate) / tan_point["volatility"] * sigma_range
-        ax.plot(sigma_range, cml, linestyle="--", color="#2ca02c", label="Capital Market Line")
+        ax.plot(sigma_range, cml, linestyle="--", color="#2ca02c", linewidth=1.5, alpha=0.8)
 
-    ax.set_title("Efficient Frontier & Capital Market Line")
-    ax.set_xlabel("Volatility (σ)")
+    ax.set_title("Risk vs Return: Choose Your Mix")
+    ax.set_xlabel("Risk (Volatility)")
     ax.set_ylabel("Expected Return")
-    ax.legend()
+    ax.legend(
+        handles=[
+            plt.Line2D([0], [0], color="#2ca02c", marker="o", linestyle="", label="Low Risk"),
+            plt.Line2D([0], [0], color="#ff7f0e", marker="*", linestyle="", label="Balanced"),
+            plt.Line2D([0], [0], color="#d62728", marker="^", linestyle="", label="High Return"),
+        ],
+        loc="lower right",
+    )
     ax.grid(True, linestyle=":", linewidth=0.7)
     fig.tight_layout()
     return fig
 
 
-st.title("Efficient Frontier & Capital Market Line")
-st.write(
-    "Enter stock ticker symbols and a date range to download historical adjusted close "
-    "prices using yfinance, then model the Efficient Frontier and Capital Market Line."
-)
+st.title("Build Your Smart Investment Portfolio")
+st.markdown("*Find the best risk–return mix for your chosen stocks.*")
+st.divider()
 
-ticker_input = st.text_input(
-    "Ticker symbols (comma-separated)", value="AAPL, MSFT, GOOG"
-)
+# ---- Step 1 ----
+st.subheader("Step 1: Pick your stocks and time period")
+st.caption("Search and select stock tickers using autocomplete, then choose the date range for historical data.")
 
+col_ticker, col_dates = st.columns([1, 1])
+with col_ticker:
+    ticker_input = ticker_autocomplete_component()
 today = date.today()
 default_start = today - timedelta(days=365 * 5)
-col_start, col_end = st.columns(2)
-start_date = col_start.date_input("Start date", value=default_start)
-end_date = col_end.date_input("End date", value=today)
+with col_dates:
+    col_start, col_end = st.columns(2)
+    start_date = col_start.date_input("Start date", value=default_start)
+    end_date = col_end.date_input("End date", value=today)
 
-risk_free_rate_input = st.number_input(
-    "Risk-free rate (% annualized)",
-    min_value=-5.0,
-    max_value=20.0,
-    value=2.0,
-    step=0.1,
-) / 100
+# ---- Step 2 ----
+st.subheader("Step 2: Set your preferences")
+st.caption("These settings affect how we measure returns and risk.")
+
+col_rf, col_freq, col_short = st.columns(3)
+with col_rf:
+    risk_free_rate_input = st.number_input(
+        "Risk-free rate (% per year)",
+        min_value=-5.0,
+        max_value=20.0,
+        value=2.0,
+        step=0.1,
+        help="Return from a safe investment (e.g. fixed deposit or government bond). Used to compare your portfolio.",
+    ) / 100
+    st.info("Think of this as the return you’d get from a safe option like an FD or government bond. We use it to see how much extra return you get for taking risk.")
 
 frequency_map = {
     "Daily (252 trading days)": 252,
     "Weekly (52 weeks)": 52,
     "Monthly (12 months)": 12,
 }
-period_label = st.selectbox("Return frequency", list(frequency_map.keys()), index=0)
-periods_per_year = frequency_map[period_label]
+with col_freq:
+    period_label = st.selectbox(
+        "Return frequency",
+        list(frequency_map.keys()),
+        index=0,
+        help="How often we treat returns: daily (most data), weekly, or monthly.",
+    )
+    periods_per_year = frequency_map[period_label]
+    st.caption("Daily uses more data; monthly is smoother. Pick what matches how you think about returns.")
 
-allow_short_sales = st.toggle("Allow short selling", value=False)
+with col_short:
+    allow_short_sales = st.toggle("Allow short selling", value=False)
+    st.caption("Short selling means betting a stock will fall. Leave off for normal long-only investing.")
 
-if not ticker_input.strip():
-    st.info("Enter at least one ticker symbol to begin.")
+if not ticker_input.strip() or len(st.session_state.selected_tickers) == 0:
+    st.info("Please select at least one ticker symbol to begin.")
     st.stop()
 
 if start_date >= end_date:
@@ -287,8 +541,12 @@ if missing_tickers:
         + ", ".join(missing_tickers)
     )
 
-st.subheader("Price Preview")
-st.dataframe(prices_df.tail())
+# ---- Step 3 ----
+st.subheader("Step 3: Your results")
+st.caption("Below: a preview of the price data we used, then your portfolio options.")
+
+with st.expander("Preview: historical price data (last 5 rows)", expanded=False):
+    st.dataframe(prices_df.tail())
 
 try:
     mean_returns, cov_matrix = compute_annual_metrics(prices_df, periods_per_year)
@@ -327,42 +585,95 @@ cml_data = {
     "sharpe": tan_sharpe,
 }
 
-frontier_plot = draw_frontier_plot(frontier_df, cml_data, risk_free_rate_input)
+# Minimum risk (min vol) and high return (max return) points on the frontier
+min_vol_row = frontier_df.loc[frontier_df["target_volatility"].idxmin()]
+min_vol_point = {
+    "return": min_vol_row["target_return"],
+    "volatility": min_vol_row["target_volatility"],
+}
+max_ret_row = frontier_df.loc[frontier_df["target_return"].idxmax()]
+max_ret_point = {
+    "return": max_ret_row["target_return"],
+    "volatility": max_ret_row["target_volatility"],
+}
+
+frontier_plot = draw_frontier_plot(
+    frontier_df, cml_data, risk_free_rate_input, min_vol_point, max_ret_point
+)
 st.pyplot(frontier_plot)
 
-st.subheader("Efficient Frontier Data")
-frontier_display = frontier_df[["target_return", "target_volatility", "sharpe_ratio"]].copy()
-st.dataframe(
-    frontier_display.style.format(
+# ---- What This Means For You ----
+st.subheader("What This Means For You")
+st.caption("We recommend the **Balanced** portfolio (best risk–return mix) unless you prefer lower risk or higher return.")
+
+example_amount = 100_000  # ₹1,00,000
+vol_range = frontier_df["target_volatility"].max() - frontier_df["target_volatility"].min()
+tan_vol_pct = (tan_vol - frontier_df["target_volatility"].min()) / vol_range if vol_range > 0 else 0.5
+if tan_vol_pct < 0.33:
+    risk_label = "Low"
+    risk_explanation = "This portfolio has relatively low volatility. Good if you prefer stability."
+elif tan_vol_pct < 0.66:
+    risk_label = "Medium"
+    risk_explanation = "Moderate risk with a balanced reward. A common choice for many investors."
+else:
+    risk_label = "High"
+    risk_explanation = "Higher risk and higher expected return. Suitable if you can tolerate swings."
+
+col_summary1, col_summary2 = st.columns(2)
+with col_summary1:
+    st.metric("Expected return (annual)", f"{tan_ret:.1%}")
+    st.caption("Average return you might expect per year based on history.")
+    st.metric("Risk level", risk_label)
+    st.caption(risk_explanation)
+with col_summary2:
+    st.write("**Suggested allocation (Balanced portfolio)**")
+    for asset, w in zip(mean_returns.index, tangency_weights):
+        st.write(f"- **{asset}**: {w:.0%}")
+    st.write("")
+    st.write(f"**If you invest ₹1,00,000:**")
+    for asset, w in zip(mean_returns.index, tangency_weights):
+        amt = example_amount * w
+        st.write(f"- **{asset}**: ₹{amt:,.0f}")
+st.divider()
+
+# ---- Technical Details (expandable) ----
+with st.expander("Technical Details (For Advanced Users)", expanded=False):
+    st.write("**Efficient frontier data** (return, volatility, Sharpe ratio for each efficient portfolio):")
+    frontier_display = frontier_df[["target_return", "target_volatility", "sharpe_ratio"]].copy()
+    frontier_display.columns = ["Expected Return", "Volatility", "Sharpe Ratio"]
+    st.dataframe(
+        frontier_display.style.format(
+            {
+                "Expected Return": "{:.2%}",
+                "Volatility": "{:.2%}",
+                "Sharpe Ratio": "{:.2f}",
+            }
+        )
+    )
+    st.write("**Recommended portfolio (Maximum Sharpe / Tangency)** — weights that maximize return per unit of risk:")
+    weights_df = pd.DataFrame(
         {
-            "target_return": "{:.2%}",
-            "target_volatility": "{:.2%}",
-            "sharpe_ratio": "{:.2f}",
+            "Asset": mean_returns.index,
+            "Weight": tangency_weights,
         }
     )
-)
-
-st.subheader("Tangency Portfolio (Max Sharpe)")
-weights_df = pd.DataFrame(
-    {
-        "Asset": mean_returns.index,
-        "Weight": tangency_weights,
-    }
-)
-st.dataframe(weights_df.set_index("Asset").style.format({"Weight": "{:.2%}"}))
-
-st.caption(
-    f"Tangency portfolio expected return: {tan_ret:.2%}, volatility: {tan_vol:.2%}, "
-    f"Sharpe ratio: {tan_sharpe:.2f}"
-)
-
-download_df = frontier_df.drop(columns="weights")
-csv_buffer = io.StringIO()
-download_df.to_csv(csv_buffer, index=False)
-
-st.download_button(
-    "Download frontier data (CSV)",
-    data=csv_buffer.getvalue(),
-    file_name="efficient_frontier.csv",
-    mime="text/csv",
-)
+    st.dataframe(weights_df.set_index("Asset").style.format({"Weight": "{:.2%}"}))
+    st.caption(
+        f"Expected return: {tan_ret:.2%}, Volatility: {tan_vol:.2%}, Sharpe ratio: {tan_sharpe:.2f}"
+    )
+    st.write("**Covariance matrix** (how asset returns move together; used in optimization):")
+    st.dataframe(cov_matrix.style.format("{:.4f}"))
+    st.caption(
+        "The app finds portfolio weights that minimize risk for each target return (efficient frontier) "
+        "and the portfolio that maximizes the Sharpe ratio (tangency portfolio), using scipy.optimize."
+    )
+    download_df = frontier_df.drop(columns="weights")
+    csv_buffer = io.StringIO()
+    download_df.to_csv(csv_buffer, index=False)
+    st.download_button(
+        "Download frontier data (CSV)",
+        data=csv_buffer.getvalue(),
+        file_name="efficient_frontier.csv",
+        mime="text/csv",
+        key="download_frontier",
+    )
