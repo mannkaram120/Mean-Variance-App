@@ -9,73 +9,26 @@ import streamlit as st
 import yfinance as yf
 from scipy.optimize import minimize
 
-# Popular US stock tickers for autocomplete
+# Fallback ticker list if S&P 500 fetch fails
 POPULAR_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH",
     "JNJ", "V", "PG", "JPM", "MA", "HD", "DIS", "BAC", "ADBE", "NFLX",
     "XOM", "CVX", "WMT", "LLY", "AVGO", "COST", "MRK", "ABBV", "PEP", "TMO",
     "CSCO", "ACN", "MCD", "ABT", "CRM", "DHR", "VZ", "ADP", "WFC", "LIN",
     "NKE", "BMY", "PM", "TXN", "RTX", "QCOM", "UPS", "HON", "AMGN", "DE",
-    "LOW", "INTU", "SPGI", "AMAT", "GE", "BKNG", "AXP", "SBUX", "GILD", "ADI",
-    "ISRG", "TJX", "C", "BLK", "MDT", "VRTX", "ZTS", "REGN", "CME", "SCHW",
-    "AAL", "AAP", "ABBV", "ABC", "ABMD", "ABT", "ACGL", "ACHC", "ACI", "ACMR",
-    "ADBE", "ADM", "ADP", "ADSK", "AEE", "AEP", "AES", "AFL", "A", "AIG",
-    "AIZ", "AJG", "AKAM", "ALB", "ALGN", "ALK", "ALL", "ALLE", "AMAT", "AMCR",
-    "AMD", "AME", "AMGN", "AMP", "AMT", "AMZN", "ANET", "ANSS", "ANTM", "AON",
-    "AOS", "APA", "APD", "APH", "APTV", "ARE", "ATO", "ATVI", "AVB", "AVGO",
-    "AVY", "AWK", "AXP", "AZO", "BA", "BAC", "BALL", "BAX", "BBWI", "BBY",
-    "BDX", "BEN", "BF.B", "BIIB", "BIO", "BK", "BKNG", "BKR", "BLK", "BLL",
-    "BMY", "BR", "BRK.B", "BSX", "BWA", "BXP", "C", "CAG", "CAH", "CAM",
-    "CAT", "CB", "CBOE", "CBRE", "CCI", "CCL", "CDAY", "CDNS", "CDW", "CE",
-    "CF", "CFG", "CHD", "CHRW", "CHTR", "CI", "CINF", "CL", "CLH", "CLX",
-    "CMA", "CMCSA", "CME", "CMG", "CMI", "CMS", "CNC", "CNP", "COF", "COO",
-    "COP", "COST", "CPB", "CPRT", "CPT", "CRL", "CRM", "CSCO", "CSGP", "CSX",
-    "CTAS", "CTLT", "CTRA", "CTSH", "CTVA", "CUBE", "CURI", "CVS", "CVX", "CZR",
-    "D", "DAL", "DD", "DDOG", "DE", "DFS", "DG", "DGX", "DHI", "DHR",
-    "DIS", "DISCA", "DISH", "DLR", "DLTR", "DOC", "DOCN", "DOCU", "DOV", "DOW",
-    "DPZ", "DRE", "DRI", "DT", "DUK", "DVA", "DVN", "DXCM", "DXPE", "EA",
-    "EBAY", "ECL", "ED", "EFX", "EG", "EIX", "EL", "ELAN", "EMN", "EMR",
-    "ENPH", "ENTG", "EOG", "EPAM", "EQH", "EQIX", "EQR", "EQT", "ES", "ESS",
-    "ETN", "ETR", "EVRG", "EW", "EXAS", "EXC", "EXPD", "EXPE", "EXR", "F",
-    "FANG", "FAST", "FBHS", "FCX", "FDS", "FDX", "FE", "FFIV", "FERG", "FIS",
-    "FISV", "FITB", "FIVE", "FIVN", "FLT", "FMC", "FNF", "FOX", "FOXA", "FRC",
-    "FRT", "FSLR", "FTNT", "FTV", "FWRD", "G", "GATX", "GD", "GE", "GEHC",
-    "GEN", "GILD", "GIS", "GL", "GLW", "GM", "GNRC", "GOOG", "GOOGL", "GPC",
-    "GPN", "GRMN", "GS", "GTLS", "HAL", "HAS", "HBAN", "HCA", "HD", "HES",
-    "HIG", "HII", "HLT", "HOLX", "HON", "HPE", "HPQ", "HRL", "HSIC", "HST",
-    "HSY", "HUBB", "HUM", "HWM", "HXL", "IBM", "ICE", "IDXX", "IEX", "IFF",
-    "ILMN", "INCY", "INFO", "INTC", "INTU", "INVH", "IP", "IPG", "IQV", "IR",
-    "IRM", "ISRG", "IT", "ITT", "ITW", "IVZ", "J", "JBHT", "JBL", "JCI",
-    "JKHY", "JNJ", "JNPR", "JPM", "K", "KDP", "KHC", "KIM", "KLAC", "KMB",
-    "KMI", "KMX", "KO", "KR", "KRC", "KRX", "KSS", "KVUE", "L", "LAMR",
-    "LBRDK", "LBRT", "LDOS", "LEN", "LEVI", "LFC", "LH", "LHX", "LIN", "LKQ",
-    "LLY", "LMT", "LNC", "LNT", "LOW", "LPLA", "LRCX", "LSI", "LULU", "LUV",
-    "LVS", "LW", "LYB", "LYV", "MA", "MAA", "MANH", "MAR", "MAS", "MASI",
-    "MCD", "MCHP", "MCK", "MCO", "MDLZ", "MDT", "MELI", "MET", "META", "MGM",
-    "MHK", "MKC", "MKTX", "MLI", "MLM", "MMC", "MMM", "MNST", "MO", "MOH",
-    "MOS", "MPC", "MPWR", "MRK", "MRNA", "MRO", "MRVL", "MS", "MSCI", "MSFT",
-    "MSI", "MTB", "MTCH", "MTD", "MU", "MUR", "NCLH", "NDAQ", "NDSN", "NEE",
-    "NEM", "NFLX", "NI", "NKE", "NOC", "NOV", "NOW", "NRG", "NSC", "NTAP",
-    "NTRS", "NUE", "NVDA", "NVR", "NWS", "NWSA", "NXST", "O", "ODFL", "OGN",
-    "OKE", "OMC", "ON", "ONON", "ORCL", "ORLY", "OTIS", "OXY", "PANW", "PARA",
-    "PAYC", "PAYX", "PCAR", "PCG", "PCH", "PDD", "PEAK", "PEG", "PENN", "PEP",
-    "PFE", "PG", "PGR", "PH", "PHM", "PKG", "PKI", "PLD", "PM", "PNC",
-    "PNR", "PNW", "POOL", "POR", "PPG", "PPL", "PRGO", "PRU", "PSA", "PSX",
-    "PTC", "PTON", "PWR", "PXD", "PYPL", "QCOM", "QRVO", "R", "RCL", "RE",
-    "REG", "REGN", "RF", "RHI", "RJF", "RL", "RMD", "ROK", "ROL", "ROP",
-    "ROST", "RPRX", "RSG", "RTX", "RVTY", "RYAN", "S", "SAIA", "SBAC", "SBUX",
-    "SCHW", "SCI", "SEIC", "SHW", "SIRI", "SJM", "SLB", "SNA", "SNPS", "SO",
-    "SPG", "SPGI", "SRE", "STE", "STLD", "STT", "STX", "STZ", "SWK", "SWKS",
-    "SYF", "SYK", "SYY", "T", "TAP", "TDG", "TDY", "TECH", "TEL", "TER",
-    "TFC", "TFX", "TGT", "TJX", "TKO", "TMO", "TMUS", "TPG", "TROW", "TRV",
-    "TSCO", "TSLA", "TSN", "TT", "TTD", "TTWO", "TXN", "TXT", "TYL", "U",
-    "UAL", "UBER", "UDR", "UHS", "ULTA", "UNH", "UNP", "UPS", "URI", "USB",
-    "V", "VFC", "VICI", "VLO", "VMC", "VRSK", "VRSN", "VRTX", "VSAT", "VST",
-    "VTR", "VTRS", "VZ", "WAB", "WAT", "WBA", "WBD", "WBS", "WCC", "WDAY",
-    "WDC", "WEC", "WELL", "WEX", "WFC", "WHR", "WM", "WMB", "WMT", "WRB",
-    "WRK", "WSC", "WSO", "WST", "WTW", "WWD", "WY", "WYNN", "XEL", "XOM",
-    "XRAY", "XYL", "YUM", "ZBH", "ZBRA", "ZION", "ZTS"
 ]
+
+
+@st.cache_data(ttl=86400)
+def load_sp500_tickers() -> List[str]:
+    """Fetch S&P 500 constituents from GitHub. Fallback to POPULAR_TICKERS on failure."""
+    try:
+        url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv"
+        df = pd.read_csv(url)
+        tickers = sorted(df["Symbol"].astype(str).str.upper().unique().tolist())
+        return tickers if tickers else POPULAR_TICKERS
+    except Exception:
+        return POPULAR_TICKERS
 
 
 st.set_page_config(
@@ -83,115 +36,6 @@ st.set_page_config(
     page_icon="💹",
     layout="wide",
 )
-
-# Initialize session state for selected tickers
-if "selected_tickers" not in st.session_state:
-    # Default tickers
-    st.session_state.selected_tickers = ["AAPL", "MSFT", "GOOG"]
-
-
-def filter_tickers(search_term: str, ticker_list: List[str], max_results: int = 10) -> List[str]:
-    """Filter tickers based on case-insensitive search term."""
-    if not search_term:
-        return ticker_list[:max_results]
-    search_upper = search_term.upper().strip()
-    filtered = [t for t in ticker_list if search_upper in t.upper()]
-    return filtered[:max_results]
-
-
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def fetch_ticker_suggestions(search_term: str) -> List[str]:
-    """
-    Optional: Fetch ticker suggestions dynamically from a public API.
-    Currently returns empty list - can be implemented with yfinance or other APIs.
-    """
-    # Example implementation (commented out):
-    # try:
-    #     # Using yfinance to search (if available)
-    #     # Note: yfinance doesn't have a direct search API, so this is a placeholder
-    #     # You could use other APIs like Alpha Vantage, IEX Cloud, etc.
-    #     pass
-    # except Exception:
-    #     pass
-    return []
-
-
-def ticker_autocomplete_component() -> str:
-    """Create an autocomplete ticker selector component."""
-    st.write("**Search and select stock tickers**")
-    
-    # Search input
-    search_term = st.text_input(
-        "Type to search tickers (e.g., 'AA' for AAPL, AAL, etc.)",
-        value="",
-        key="ticker_search",
-        placeholder="Start typing...",
-        help="Type letters to see matching stock tickers. Click suggestions to add them, or type a ticker and press Enter to add manually.",
-    )
-    
-    # Filter tickers based on search
-    filtered_tickers = filter_tickers(search_term, POPULAR_TICKERS, max_results=15)
-    
-    # Show suggestions if there's a search term
-    if search_term.strip():
-        search_upper = search_term.strip().upper()
-        # Check if the search term itself is a valid ticker (exact match or in filtered list)
-        exact_match = search_upper in POPULAR_TICKERS
-        
-        if filtered_tickers:
-            st.caption(f"Found {len(filtered_tickers)} matching ticker(s):")
-            # Create columns for ticker buttons
-            cols = st.columns(min(5, len(filtered_tickers)))
-            for idx, ticker in enumerate(filtered_tickers):
-                col_idx = idx % 5
-                with cols[col_idx]:
-                    if st.button(ticker, key=f"suggest_{ticker}", use_container_width=True):
-                        if ticker not in st.session_state.selected_tickers:
-                            st.session_state.selected_tickers.append(ticker)
-                            st.rerun()
-            
-            # If search term is exact match but not in filtered (shouldn't happen), add it
-            if exact_match and search_upper not in st.session_state.selected_tickers:
-                if st.button(f"Add '{search_upper}'", key="add_exact_match", type="primary"):
-                    st.session_state.selected_tickers.append(search_upper)
-                    st.rerun()
-        else:
-            # No matches found, but allow manual entry if it looks like a ticker (3-5 uppercase letters)
-            if len(search_upper) >= 1 and len(search_upper) <= 5 and search_upper.isalpha():
-                st.caption(f"No matching tickers found. You can add '{search_upper}' manually:")
-                if st.button(f"Add '{search_upper}' as ticker", key="add_manual_ticker", type="primary"):
-                    if search_upper not in st.session_state.selected_tickers:
-                        st.session_state.selected_tickers.append(search_upper)
-                        st.rerun()
-            else:
-                st.caption("No matching tickers found. Try a different search or enter a valid ticker symbol (3-5 letters).")
-    
-    # Display selected tickers
-    if st.session_state.selected_tickers:
-        st.write(f"**Selected tickers ({len(st.session_state.selected_tickers)}):**")
-        # Display tickers in a cleaner format
-        ticker_display = " • ".join(st.session_state.selected_tickers)
-        st.markdown(f"`{ticker_display}`")
-        
-        # Remove buttons in a grid
-        num_selected = len(st.session_state.selected_tickers)
-        remove_cols = st.columns(min(6, num_selected))
-        for idx, ticker in enumerate(st.session_state.selected_tickers):
-            col_idx = idx % 6
-            with remove_cols[col_idx]:
-                if st.button(f"Remove {ticker}", key=f"remove_{ticker}", use_container_width=True):
-                    st.session_state.selected_tickers.remove(ticker)
-                    st.rerun()
-        
-        # Clear all button
-        if st.button("🗑️ Clear all selections", key="clear_all_tickers", type="secondary", use_container_width=True):
-            st.session_state.selected_tickers = []
-            st.rerun()
-    else:
-        st.info("💡 No tickers selected. Start typing above to search and add tickers.")
-    
-    # Return comma-separated string for backend compatibility
-    return ", ".join(st.session_state.selected_tickers)
 
 
 @st.cache_data(show_spinner=False)
@@ -466,42 +310,54 @@ st.title("Build Your Smart Investment Portfolio")
 st.markdown("*Find the best risk–return mix for your chosen stocks.*")
 st.divider()
 
-# ---- Step 1 ----
-st.subheader("Step 1: Pick your stocks and time period")
-st.caption("Search and select stock tickers using autocomplete, then choose the date range for historical data.")
+TIME_PRESETS = {
+    "1 Month": 30,
+    "3 Months": 90,
+    "6 Months": 180,
+    "1 Year": 365,
+    "5 Years": 365 * 5,
+    "10 Years": 365 * 10,
+    "20 Years": 365 * 20,
+}
 
-col_ticker, col_dates = st.columns([1, 1])
-with col_ticker:
-    ticker_input = ticker_autocomplete_component()
-today = date.today()
-default_start = today - timedelta(days=365 * 5)
-with col_dates:
-    col_start, col_end = st.columns(2)
-    start_date = col_start.date_input("Start date", value=default_start)
-    end_date = col_end.date_input("End date", value=today)
+col_left, col_right = st.columns([2, 3])
+frontier_plot = None  # Will be set when computation succeeds
 
-# ---- Step 2 ----
-st.subheader("Step 2: Set your preferences")
-st.caption("These settings affect how we measure returns and risk.")
+with col_left:
+    TICKER_OPTIONS = load_sp500_tickers()
+    selected_tickers = st.multiselect(
+        "Stock tickers",
+        options=TICKER_OPTIONS,
+        default=["AAPL", "MSFT", "GOOG"],
+        placeholder="Type to search...",
+        max_selections=20,
+    )
+    ticker_input = ", ".join(selected_tickers)
 
-col_rf, col_freq, col_short = st.columns(3)
-with col_rf:
-    risk_free_rate_input = st.number_input(
+    time_choice = st.radio(
+        "Time horizon",
+        options=list(TIME_PRESETS.keys()),
+        index=4,
+        horizontal=True,
+    )
+    today = date.today()
+    start_date = today - timedelta(days=TIME_PRESETS[time_choice])
+    end_date = today
+
+    risk_free_rate_input = st.slider(
         "Risk-free rate (% per year)",
         min_value=-5.0,
         max_value=20.0,
         value=2.0,
-        step=0.1,
-        help="Return from a safe investment (e.g. fixed deposit or government bond). Used to compare your portfolio.",
+        step=0.5,
+        help="Return from a safe investment (e.g. FD or government bond).",
     ) / 100
-    st.info("Think of this as the return you’d get from a safe option like an FD or government bond. We use it to see how much extra return you get for taking risk.")
 
-frequency_map = {
-    "Daily (252 trading days)": 252,
-    "Weekly (52 weeks)": 52,
-    "Monthly (12 months)": 12,
-}
-with col_freq:
+    frequency_map = {
+        "Daily (252 trading days)": 252,
+        "Weekly (52 weeks)": 52,
+        "Monthly (12 months)": 12,
+    }
     period_label = st.selectbox(
         "Return frequency",
         list(frequency_map.keys()),
@@ -509,171 +365,136 @@ with col_freq:
         help="How often we treat returns: daily (most data), weekly, or monthly.",
     )
     periods_per_year = frequency_map[period_label]
-    st.caption("Daily uses more data; monthly is smoother. Pick what matches how you think about returns.")
 
-with col_short:
     allow_short_sales = st.toggle("Allow short selling", value=False)
-    st.caption("Short selling means betting a stock will fall. Leave off for normal long-only investing.")
 
-if not ticker_input.strip() or len(st.session_state.selected_tickers) == 0:
-    st.info("Please select at least one ticker symbol to begin.")
-    st.stop()
-
-if start_date >= end_date:
-    st.error("Start date must be before end date.")
-    st.stop()
-
-try:
-    prices_df = load_price_data_from_yfinance(ticker_input, start_date, end_date)
-except Exception as exc:
-    st.error(f"Unable to download price data: {exc}")
-    st.stop()
-
-if prices_df.shape[1] < 2:
-    st.error("Please ensure there are at least two assets with valid price data.")
-    st.stop()
-
-requested_tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
-missing_tickers = sorted(set(requested_tickers) - set(prices_df.columns))
-if missing_tickers:
-    st.warning(
-        "No data found for the following tickers in the selected date range: "
-        + ", ".join(missing_tickers)
+    frontier_plot = None
+    can_compute = (
+        selected_tickers
+        and len(selected_tickers) >= 2
+        and start_date < end_date
     )
 
-# ---- Step 3 ----
-st.subheader("Step 3: Your results")
-st.caption("Below: a preview of the price data we used, then your portfolio options.")
+    if can_compute:
+        try:
+            prices_df = load_price_data_from_yfinance(ticker_input, start_date, end_date)
+            if prices_df.shape[1] < 2:
+                st.error("Please ensure there are at least two assets with valid price data.")
+            else:
+                requested_tickers = [t.strip().upper() for t in ticker_input.split(",") if t.strip()]
+                missing_tickers = sorted(set(requested_tickers) - set(prices_df.columns))
+                if missing_tickers:
+                    st.warning("No data found for: " + ", ".join(missing_tickers))
+                mean_returns, cov_matrix = compute_annual_metrics(prices_df, periods_per_year)
+                num_assets = len(mean_returns)
+                bounds = tuple(
+                    (-1.0, 1.0) if allow_short_sales else (0.0, 1.0)
+                    for _ in range(num_assets)
+                )
+                target_returns = np.linspace(mean_returns.min(), mean_returns.max(), num=50)
+                frontier_df = build_efficient_frontier(
+                    mean_returns, cov_matrix, target_returns, risk_free_rate_input, bounds
+                )
+                tangency_weights = max_sharpe_weights(
+                    mean_returns, cov_matrix, risk_free_rate_input, bounds
+                )
+                tan_ret = portfolio_return(tangency_weights, mean_returns)
+                tan_vol = portfolio_volatility(tangency_weights, cov_matrix)
+                tan_sharpe = (tan_ret - risk_free_rate_input) / tan_vol if tan_vol > 0 else np.nan
+                min_vol_row = frontier_df.loc[frontier_df["target_volatility"].idxmin()]
+                min_vol_point = {
+                    "return": min_vol_row["target_return"],
+                    "volatility": min_vol_row["target_volatility"],
+                }
+                max_ret_row = frontier_df.loc[frontier_df["target_return"].idxmax()]
+                max_ret_point = {
+                    "return": max_ret_row["target_return"],
+                    "volatility": max_ret_row["target_volatility"],
+                }
+                cml_data = {
+                    "return": tan_ret,
+                    "volatility": tan_vol,
+                    "sharpe": tan_sharpe,
+                }
+                frontier_plot = draw_frontier_plot(
+                    frontier_df, cml_data, risk_free_rate_input, min_vol_point, max_ret_point
+                )
 
-with st.expander("Preview: historical price data (last 5 rows)", expanded=False):
-    st.dataframe(prices_df.tail())
+                st.subheader("What This Means For You")
+                example_amount = 100_000
+                vol_range = frontier_df["target_volatility"].max() - frontier_df["target_volatility"].min()
+                tan_vol_pct = (tan_vol - frontier_df["target_volatility"].min()) / vol_range if vol_range > 0 else 0.5
+                if tan_vol_pct < 0.33:
+                    risk_label = "Low"
+                    risk_explanation = "This portfolio has relatively low volatility. Good if you prefer stability."
+                elif tan_vol_pct < 0.66:
+                    risk_label = "Medium"
+                    risk_explanation = "Moderate risk with a balanced reward. A common choice for many investors."
+                else:
+                    risk_label = "High"
+                    risk_explanation = "Higher risk and higher expected return. Suitable if you can tolerate swings."
 
-try:
-    mean_returns, cov_matrix = compute_annual_metrics(prices_df, periods_per_year)
-except Exception as exc:
-    st.error(f"Failed to compute statistics: {exc}")
-    st.stop()
+                st.metric("Expected return (annual)", f"{tan_ret:.1%}")
+                st.caption("Average return you might expect per year based on history.")
+                st.metric("Risk level", risk_label)
+                st.caption(risk_explanation)
+                st.write("**Suggested allocation (Balanced portfolio)**")
+                for asset, w in zip(mean_returns.index, tangency_weights):
+                    st.write(f"- **{asset}**: {w:.0%}")
+                st.write("**If you invest Rs 1,00,000:**")
+                for asset, w in zip(mean_returns.index, tangency_weights):
+                    amt = example_amount * w
+                    st.write(f"- **{asset}**: Rs {amt:,.0f}")
 
-num_assets = len(mean_returns)
-bounds = tuple(
-    (-1.0, 1.0) if allow_short_sales else (0.0, 1.0)
-    for _ in range(num_assets)
-)
+                with st.expander("Preview: historical price data", expanded=False):
+                    st.dataframe(prices_df.tail())
+        except Exception as exc:
+            st.error(f"Unable to load price data: {exc}")
 
-target_returns = np.linspace(mean_returns.min(), mean_returns.max(), num=50)
-try:
-    frontier_df = build_efficient_frontier(
-        mean_returns, cov_matrix, target_returns, risk_free_rate_input, bounds
-    )
-except Exception as exc:
-    st.error(exc)
-    st.stop()
-
-try:
-    tangency_weights = max_sharpe_weights(mean_returns, cov_matrix, risk_free_rate_input, bounds)
-except Exception as exc:
-    st.error(exc)
-    st.stop()
-
-tan_ret = portfolio_return(tangency_weights, mean_returns)
-tan_vol = portfolio_volatility(tangency_weights, cov_matrix)
-tan_sharpe = (tan_ret - risk_free_rate_input) / tan_vol if tan_vol > 0 else np.nan
-
-cml_data = {
-    "return": tan_ret,
-    "volatility": tan_vol,
-    "sharpe": tan_sharpe,
-}
-
-# Minimum risk (min vol) and high return (max return) points on the frontier
-min_vol_row = frontier_df.loc[frontier_df["target_volatility"].idxmin()]
-min_vol_point = {
-    "return": min_vol_row["target_return"],
-    "volatility": min_vol_row["target_volatility"],
-}
-max_ret_row = frontier_df.loc[frontier_df["target_return"].idxmax()]
-max_ret_point = {
-    "return": max_ret_row["target_return"],
-    "volatility": max_ret_row["target_volatility"],
-}
-
-frontier_plot = draw_frontier_plot(
-    frontier_df, cml_data, risk_free_rate_input, min_vol_point, max_ret_point
-)
-st.pyplot(frontier_plot)
-
-# ---- What This Means For You ----
-st.subheader("What This Means For You")
-st.caption("We recommend the **Balanced** portfolio (best risk–return mix) unless you prefer lower risk or higher return.")
-
-example_amount = 100_000  # ₹1,00,000
-vol_range = frontier_df["target_volatility"].max() - frontier_df["target_volatility"].min()
-tan_vol_pct = (tan_vol - frontier_df["target_volatility"].min()) / vol_range if vol_range > 0 else 0.5
-if tan_vol_pct < 0.33:
-    risk_label = "Low"
-    risk_explanation = "This portfolio has relatively low volatility. Good if you prefer stability."
-elif tan_vol_pct < 0.66:
-    risk_label = "Medium"
-    risk_explanation = "Moderate risk with a balanced reward. A common choice for many investors."
-else:
-    risk_label = "High"
-    risk_explanation = "Higher risk and higher expected return. Suitable if you can tolerate swings."
-
-col_summary1, col_summary2 = st.columns(2)
-with col_summary1:
-    st.metric("Expected return (annual)", f"{tan_ret:.1%}")
-    st.caption("Average return you might expect per year based on history.")
-    st.metric("Risk level", risk_label)
-    st.caption(risk_explanation)
-with col_summary2:
-    st.write("**Suggested allocation (Balanced portfolio)**")
-    for asset, w in zip(mean_returns.index, tangency_weights):
-        st.write(f"- **{asset}**: {w:.0%}")
-    st.write("")
-    st.write(f"**If you invest ₹1,00,000:**")
-    for asset, w in zip(mean_returns.index, tangency_weights):
-        amt = example_amount * w
-        st.write(f"- **{asset}**: ₹{amt:,.0f}")
-st.divider()
-
-# ---- Technical Details (expandable) ----
-with st.expander("Technical Details (For Advanced Users)", expanded=False):
-    st.write("**Efficient frontier data** (return, volatility, Sharpe ratio for each efficient portfolio):")
-    frontier_display = frontier_df[["target_return", "target_volatility", "sharpe_ratio"]].copy()
-    frontier_display.columns = ["Expected Return", "Volatility", "Sharpe Ratio"]
-    st.dataframe(
-        frontier_display.style.format(
-            {
-                "Expected Return": "{:.2%}",
-                "Volatility": "{:.2%}",
-                "Sharpe Ratio": "{:.2f}",
-            }
-        )
-    )
-    st.write("**Recommended portfolio (Maximum Sharpe / Tangency)** — weights that maximize return per unit of risk:")
-    weights_df = pd.DataFrame(
-        {
-            "Asset": mean_returns.index,
-            "Weight": tangency_weights,
-        }
-    )
-    st.dataframe(weights_df.set_index("Asset").style.format({"Weight": "{:.2%}"}))
-    st.caption(
-        f"Expected return: {tan_ret:.2%}, Volatility: {tan_vol:.2%}, Sharpe ratio: {tan_sharpe:.2f}"
-    )
-    st.write("**Covariance matrix** (how asset returns move together; used in optimization):")
-    st.dataframe(cov_matrix.style.format("{:.4f}"))
-    st.caption(
-        "The app finds portfolio weights that minimize risk for each target return (efficient frontier) "
-        "and the portfolio that maximizes the Sharpe ratio (tangency portfolio), using scipy.optimize."
-    )
-    download_df = frontier_df.drop(columns="weights")
-    csv_buffer = io.StringIO()
-    download_df.to_csv(csv_buffer, index=False)
-    st.download_button(
-        "Download frontier data (CSV)",
-        data=csv_buffer.getvalue(),
-        file_name="efficient_frontier.csv",
-        mime="text/csv",
-        key="download_frontier",
-    )
+with col_right:
+    if not selected_tickers or len(selected_tickers) < 2:
+        st.info("Select at least 2 tickers to see the efficient frontier chart.")
+    elif frontier_plot is not None:
+        st.pyplot(frontier_plot)
+        with st.expander("Technical Details (For Advanced Users)", expanded=False):
+            st.write("**Efficient frontier data** (return, volatility, Sharpe ratio for each efficient portfolio):")
+            frontier_display = frontier_df[["target_return", "target_volatility", "sharpe_ratio"]].copy()
+            frontier_display.columns = ["Expected Return", "Volatility", "Sharpe Ratio"]
+            st.dataframe(
+                frontier_display.style.format(
+                    {
+                        "Expected Return": "{:.2%}",
+                        "Volatility": "{:.2%}",
+                        "Sharpe Ratio": "{:.2f}",
+                    }
+                )
+            )
+            st.write("**Recommended portfolio (Maximum Sharpe / Tangency)** — weights that maximize return per unit of risk:")
+            weights_df = pd.DataFrame(
+                {
+                    "Asset": mean_returns.index,
+                    "Weight": tangency_weights,
+                }
+            )
+            st.dataframe(weights_df.set_index("Asset").style.format({"Weight": "{:.2%}"}))
+            st.caption(
+                f"Expected return: {tan_ret:.2%}, Volatility: {tan_vol:.2%}, Sharpe ratio: {tan_sharpe:.2f}"
+            )
+            st.write("**Covariance matrix** (how asset returns move together; used in optimization):")
+            st.dataframe(cov_matrix.style.format("{:.4f}"))
+            st.caption(
+                "The app finds portfolio weights that minimize risk for each target return (efficient frontier) "
+                "and the portfolio that maximizes the Sharpe ratio (tangency portfolio), using scipy.optimize."
+            )
+            download_df = frontier_df.drop(columns="weights")
+            csv_buffer = io.StringIO()
+            download_df.to_csv(csv_buffer, index=False)
+            st.download_button(
+                "Download frontier data (CSV)",
+                data=csv_buffer.getvalue(),
+                file_name="efficient_frontier.csv",
+                mime="text/csv",
+                key="download_frontier",
+            )
+    else:
+        st.info("Data could not be loaded. Check your tickers and try again.")
