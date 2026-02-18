@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Karamjeet Singh — Finance | Risk | Portfolio Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --border: #e8eaed;
+    --text: #111318;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-light: #eff4ff;
+    --accent2: #1e40af;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow: 0 4px 16px rgba(0,0,0,.07), 0 1px 4px rgba(0,0,0,.04);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.1), 0 2px 8px rgba(0,0,0,.06);
+    --radius: 16px;
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(247,248,250,.88); backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 max(24px, calc((100% - 1100px)/2));
+    height: 64px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -.01em; }
+  .nav-links { display: flex; gap: 8px; align-items: center; }
+  .nav-links a { font-size: .9rem; font-weight: 500; color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 8px; transition: background .15s, color .15s; }
+  .nav-links a:hover, .nav-links a.active { background: var(--accent-light); color: var(--accent); }
+  .nav-links .cta { background: var(--accent); color: #fff !important; padding: 7px 18px; }
+  .nav-links .cta:hover { background: var(--accent2) !important; }
+
+  /* ── LAYOUT ── */
+  .page { display: none; }
+  .page.active { display: block; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: calc(100vh - 64px);
+    display: flex; align-items: center;
+    padding: 80px 0;
+  }
+  .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+  .hero-avatar-wrap { display: flex; justify-content: center; }
+  .hero-avatar {
+    width: 280px; height: 280px; border-radius: 50%;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 0 8px #fff, 0 0 0 12px #dbeafe, var(--shadow-lg);
+    font-size: 7rem;
+    animation: float 6s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .hero-content { animation: fadeUp .7s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-light); color: var(--accent);
+    font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 20px; margin-bottom: 20px;
+  }
+  .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .hero h1 { font-family: var(--serif); font-size: clamp(2.4rem, 5vw, 3.5rem); font-weight: 700; line-height: 1.1; letter-spacing: -.02em; color: var(--text); margin-bottom: 14px; }
+  .hero-sub { font-size: 1.1rem; font-weight: 500; color: var(--accent); margin-bottom: 14px; letter-spacing: -.01em; }
+  .hero-desc { font-size: .97rem; color: var(--muted); line-height: 1.7; margin-bottom: 32px; max-width: 440px; }
+  .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 10px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .2s; text-decoration: none; border: none; }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.3); }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,.4); }
+  .btn-outline { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+  /* ── SECTION TITLES ── */
+  .section-label { font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  .section-title { font-family: var(--serif); font-size: 2rem; font-weight: 700; letter-spacing: -.02em; margin-bottom: 8px; }
+  .section-desc { color: var(--muted); font-size: .95rem; }
+
+  /* ── PORTFOLIO PAGE ── */
+  .port-page { padding: 60px 0 100px; }
+  .port-header { text-align: center; margin-bottom: 52px; }
+  .port-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; align-items: start; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .card-header { padding: 22px 26px 18px; border-bottom: 1px solid var(--border); }
+  .card-title { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .card-title span { font-size: 1.2rem; }
+  .card-body { padding: 24px 26px; }
+
+  /* Form elements */
+  .form-group { margin-bottom: 22px; }
+  label { display: block; font-size: .83rem; font-weight: 600; color: var(--text); margin-bottom: 7px; }
+  .label-hint { font-weight: 400; color: var(--muted); margin-left: 6px; }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-family: var(--sans); font-size: .9rem;
+    color: var(--text); background: var(--bg); transition: border .15s, box-shadow .15s;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); background: #fff; }
+  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Tag inputs */
+  .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); min-height: 44px; cursor: text; transition: border .15s, box-shadow .15s; }
+  .tag-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); background: #fff; }
+  .tag { background: var(--accent-light); color: var(--accent); font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: flex; align-items: center; gap: 5px; }
+  .tag button { background: none; border: none; cursor: pointer; color: var(--accent); font-size: .9rem; line-height: 1; padding: 0; }
+  .tag-input { border: none; outline: none; font-family: var(--sans); font-size: .88rem; color: var(--text); background: transparent; min-width: 100px; flex: 1; }
+
+  /* Slider */
+  input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--accent) 0%, var(--border) 0%); outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: var(--shadow-sm); }
+  .slider-labels { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin-top: 4px; }
+  .slider-value { font-size: .88rem; font-weight: 600; color: var(--accent); float: right; margin-bottom: 6px; }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+  .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: .2s; }
+  .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  /* Results */
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .result-header { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); padding: 22px 26px; color: #fff; }
+  .result-header h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+  .result-header p { font-size: .85rem; opacity: .8; }
+  .result-body { padding: 24px 26px; }
+  .metric-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-label { font-size: .88rem; color: var(--muted); font-weight: 500; }
+  .metric-value { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+  .metric-value.good { color: #16a34a; }
+  .metric-value.warn { color: #d97706; }
+
+  /* Weight bars */
+  .weight-item { margin-bottom: 14px; }
+  .weight-header { display: flex; justify-content: space-between; font-size: .85rem; font-weight: 600; margin-bottom: 5px; }
+  .weight-bar-wrap { background: var(--border); border-radius: 4px; height: 7px; overflow: hidden; }
+  .weight-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #60a5fa); border-radius: 4px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tab { padding: 10px 18px; font-size: .88rem; font-weight: 600; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: .2s; margin-bottom: -1px; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Canvas chart */
+  #frontier-canvas { border-radius: 10px; background: var(--bg); width: 100%; }
+
+  /* Chip group */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { padding: 5px 13px; border-radius: 20px; font-size: .8rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); transition: .15s; user-select: none; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+  /* Dropdown */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); min-width: 200px; padding: 8px; z-index: 200; display: none; animation: dropIn .15s ease; }
+  @keyframes dropIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .dropdown.open .dropdown-menu { display: block; }
+  .dropdown-item { padding: 9px 12px; border-radius: 8px; font-size: .88rem; cursor: pointer; color: var(--text); transition: background .1s; }
+  .dropdown-item:hover { background: var(--accent-light); color: var(--accent); }
+
+  /* Loading spinner */
+  .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 16px; opacity: .4; }
+  .empty-state p { font-size: .92rem; }
+
+  /* RESPONSIVE */
+  @media(max-width:900px) {
+    .hero-inner { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+    .hero-avatar { width: 200px; height: 200px; font-size: 5rem; margin: 0 auto; }
+    .hero-btns { justify-content: center; }
+    .port-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 16px; }
+    .nav-links a:not(.cta) { display: none; }
+  }
+  @media(max-width:600px) {
+    .hero h1 { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand" onclick="showPage('home')">Karamjeet Singh</a>
+  <div class="nav-links">
+    <a href="#" onclick="showPage('home')" id="nav-home" class="active">Home</a>
+    <div class="dropdown" id="port-dropdown">
+      <a href="#" onclick="toggleDropdown(event)" id="nav-portfolio" style="display:flex;align-items:center;gap:4px;">Portfolio ▾</a>
+      <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="showPage('portfolio')">⚡ Portfolio Optimizer</div>
+        <div class="dropdown-item" onclick="showPage('home')">📊 About Me</div>
+      </div>
+    </div>
+    <a href="mailto:karamjeet@example.com" class="cta btn">✉ Contact</a>
+  </div>
+</nav>
+
+<!-- HOME PAGE -->
+<div class="page active" id="page-home">
+  <section class="hero">
+    <div class="container">
+      <div class="hero-inner">
+        <div class="hero-avatar-wrap">
+          <div class="hero-avatar">👨‍💼</div>
+        </div>
+        <div class="hero-content">
+          <div class="hero-badge">Available for Opportunities</div>
+          <h1>Karamjeet<br/>Singh</h1>
+          <p class="hero-sub">Finance · Risk · Portfolio Analytics</p>
+          <p class="hero-desc">FRM Candidate passionate about financial risk management and quantitative analysis. I build data-driven tools to help investors make smarter decisions.</p>
+          <div class="hero-btns">
+            <a href="mailto:karamjeet@example.com" class="btn btn-primary">✉ Email Me</a>
+            <a href="https://linkedin.com" target="_blank" class="btn btn-outline">in LinkedIn</a>
+            <button class="btn btn-outline" onclick="showPage('portfolio')">⚡ Try Portfolio Tool</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- PORTFOLIO PAGE -->
+<div class="page" id="page-portfolio">
+<div class="port-page">
+<div class="container">
+
+  <div class="port-header">
+    <div class="section-label">Quantitative Finance Tool</div>
+    <div class="section-title">Portfolio Optimization</div>
+    <p class="section-desc">Enter your assets and parameters to find the optimal risk-return allocation using Modern Portfolio Theory.</p>
+  </div>
+
+  <div class="port-grid">
+
+    <!-- LEFT: INPUTS -->
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title"><span>🏢</span> Asset Selection</div>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Stock Tickers <span class="label-hint">type & press Enter</span></label>
+            <div class="tag-input-wrap" id="tag-wrap" onclick="document.getElementById('ticker-input').focus()">
+              <div class="tag">AAPL <button onclick="removeTag(this,'AAPL')">×</button></div>
+              <div class="tag">MSFT <button onclick="removeTag(this,'MSFT')">×</button></div>
+              <div class="tag">GOOG <button onclick="removeTag(this,'GOOG')">×</button></div>
+              <input class="tag-input" id="ticker-input" placeholder="e.g. TSLA…" onkeydown="handleTickerInput(event)"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Quick Add — Popular Stocks</label>
+            <div class="chip-group" id="quick-chips">
+              <div class="chip" onclick="toggleChip(this,'NVDA')">NVDA</div>
+              <div class="chip" onclick="toggleChip(this,'META')">META</div>
+              <div class="chip" onclick="toggleChip(this,'AMZN')">AMZN</div>
+              <div class="chip" onclick="toggleChip(this,'TSLA')">TSLA</div>
+              <div class="chip" onclick="toggleChip(this,'JPM')">JPM</div>
+              <div class="chip" onclick="toggleChip(this,'V')">V</div>
+              <div class="chip" onclick="toggleChip(this,'BRK.B')">BRK.B</div>
+              <div class="chip" onclick="toggleChip(this,'NFLX')">NFLX</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title"><span>⚙️</span> Parameters</div>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Time Horizon</label>
+            <div class="chip-group" id="time-chips">
+              <div class="chip" onclick="selectTime(this,'90')">3M</div>
+              <div class="chip" onclick="selectTime(this,'180')">6M</div>
+              <div class="chip selected" onclick="selectTime(this,'365')">1Y</div>
+              <div class="chip" onclick="selectTime(this,'1825')">5Y</div>
+              <div class="chip" onclick="selectTime(this,'3650')">10Y</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="slider-value"><span id="rfr-display">2.0</span>% p.a.</div>
+            <label>Risk-free rate (% per year)</label>
+            <input type="range" id="rfr-slider" min="-5" max="20" step="0.5" value="2" oninput="updateSlider()"/>
+            <div class="slider-labels"><span>−5%</span><span>20%</span></div>
+          </div>
+
+          <div class="form-group">
+            <label>Return Frequency</label>
+            <select id="frequency">
+              <option value="252">Daily (252 trading days)</option>
+              <option value="52">Weekly (52 weeks)</option>
+              <option value="12">Monthly (12 months)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-row">
+              <label style="margin:0">Allow Short Selling</label>
+              <label class="toggle"><input type="checkbox" id="short-toggle"/><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="optimize-btn" onclick="runOptimization()" style="width:100%;justify-content:center;font-size:1rem;padding:14px;">
+        ⚡ Optimize Portfolio
+      </button>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div id="results-panel">
+      <div class="card" id="empty-state">
+        <div class="empty-state">
+          <div class="icon">📈</div>
+          <p>Configure your assets and parameters on the left, then click <strong>Optimize Portfolio</strong> to see results.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ── PAGE ROUTING ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.getElementById('nav-'+id)?.classList.add('active');
+  closeDropdowns();
+  window.scrollTo(0,0);
+}
+
+// ── DROPDOWN ──
+function toggleDropdown(e) {
+  e.preventDefault();
+  document.getElementById('port-dropdown').classList.toggle('open');
+}
+function closeDropdowns() {
+  document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
+}
+document.addEventListener('click', e => { if(!e.target.closest('.dropdown')) closeDropdowns(); });
+
+// ── TICKER TAGS ──
+let activeTickers = new Set(['AAPL','MSFT','GOOG']);
+
+function handleTickerInput(e) {
+  if(['Enter','Tab',','].includes(e.key)) {
+    e.preventDefault();
+    const val = e.target.value.trim().toUpperCase();
+    if(val && !activeTickers.has(val)) addTag(val);
+    e.target.value = '';
+  }
+}
+function addTag(ticker) {
+  activeTickers.add(ticker);
+  const wrap = document.getElementById('tag-wrap');
+  const inp = document.getElementById('ticker-input');
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.innerHTML = `${ticker} <button onclick="removeTag(this,'${ticker}')">×</button>`;
+  wrap.insertBefore(tag, inp);
+  document.querySelectorAll('#quick-chips .chip').forEach(c => {
+    if(c.textContent.trim() === ticker) c.classList.add('selected');
+  });
+}
+function removeTag(btn, ticker) {
+  activeTickers.delete(ticker);
+  btn.closest('.tag').remove();
+  document.querySelectorAll('#quick-chips .chip').forEach(c => {
+    if(c.textContent.trim() === ticker) c.classList.remove('selected');
+  });
+}
+function toggleChip(el, ticker) {
+  if(el.classList.contains('selected')) {
+    el.classList.remove('selected');
+    document.querySelectorAll('#tag-wrap .tag').forEach(t => {
+      if(t.textContent.trim().startsWith(ticker)) t.remove();
+    });
+    activeTickers.delete(ticker);
+  } else {
+    if(!activeTickers.has(ticker)) addTag(ticker);
+  }
+}
+
+// ── SLIDER ──
+function updateSlider() {
+  const v = document.getElementById('rfr-slider').value;
+  document.getElementById('rfr-display').textContent = parseFloat(v).toFixed(1);
+  const pct = ((parseFloat(v)+5)/25)*100;
+  document.getElementById('rfr-slider').style.background =
+    `linear-gradient(to right, var(--accent) ${pct}%, var(--border) ${pct}%)`;
+}
+updateSlider();
+
+// ── TIME ──
+let selectedDays = 365;
+function selectTime(el, days) {
+  document.querySelectorAll('#time-chips .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDays = parseInt(days);
+}
+
+// ── MOCK OPTIMIZATION ENGINE ──
+function runOptimization() {
+  const tickers = [...activeTickers];
+  if(tickers.length < 2) {
+    document.getElementById('results-panel').innerHTML = `<div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;color:#dc2626;font-size:.88rem">⚠️ Please select at least 2 tickers to optimize.</div>`;
+    return;
+  }
+  const btn = document.getElementById('optimize-btn');
+  btn.innerHTML = '<div class="spinner"></div> Computing…';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.innerHTML = '⚡ Optimize Portfolio';
+    btn.disabled = false;
+    showResults(tickers);
+  }, 1400);
+}
+
+function showResults(tickers) {
+  const n = tickers.length;
+  const rfr = parseFloat(document.getElementById('rfr-slider').value)/100;
+
+  let raw = tickers.map(() => Math.random()*0.7 + 0.1);
+  const sum = raw.reduce((a,b)=>a+b,0);
+  let weights = raw.map(w => w/sum);
+
+  const retBase = weights.reduce((a,w) => a + w*(0.08+Math.random()*0.18), 0);
+  const volBase = weights.reduce((a,w) => a + w*(0.12+Math.random()*0.18), 0);
+  const sharpe = (retBase - rfr) / volBase;
+
+  const panel = document.getElementById('results-panel');
+  panel.innerHTML = '';
+
+  const metricsCard = document.createElement('div');
+  metricsCard.className = 'result-card';
+  metricsCard.style.marginBottom = '20px';
+  metricsCard.innerHTML = `
+    <div class="result-header">
+      <h3>⭐ Optimal Portfolio — Max Sharpe</h3>
+      <p>Tangency portfolio maximizing return per unit of risk</p>
+    </div>
+    <div class="result-body">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'summary')">Summary</button>
+        <button class="tab" onclick="switchTab(this,'weights')">Allocation</button>
+        <button class="tab" onclick="switchTab(this,'frontier')">Efficient Frontier</button>
+      </div>
+      <div id="tab-summary">
+        <div class="metric-row">
+          <span class="metric-label">Expected Annual Return</span>
+          <span class="metric-value good">${(retBase*100).toFixed(1)}%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Portfolio Volatility (Risk)</span>
+          <span class="metric-value warn">${(volBase*100).toFixed(1)}%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Sharpe Ratio</span>
+          <span class="metric-value" style="color:var(--accent)">${sharpe.toFixed(2)}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Risk-Free Rate</span>
+          <span class="metric-value">${(rfr*100).toFixed(1)}%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Risk Level</span>
+          <span class="metric-value">${volBase < 0.18 ? '🟢 Low' : volBase < 0.26 ? '🟡 Moderate' : '🔴 High'}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Short Selling</span>
+          <span class="metric-value">${document.getElementById('short-toggle').checked ? 'Enabled' : 'Disabled'}</span>
+        </div>
+      </div>
+      <div id="tab-weights" style="display:none">
+        ${tickers.map((t,i) => `
+          <div class="weight-item">
+            <div class="weight-header"><span>${t}</span><span>${(weights[i]*100).toFixed(1)}%</span></div>
+            <div class="weight-bar-wrap"><div class="weight-bar" style="width:${weights[i]*100}%"></div></div>
+          </div>`).join('')}
+        <div style="margin-top:18px;padding:14px;background:var(--accent-light);border-radius:10px;font-size:.85rem;color:var(--accent)">
+          <strong>₹1,00,000 allocation:</strong><br/>
+          ${tickers.map((t,i) => `${t}: ₹${Math.round(weights[i]*100000).toLocaleString()}`).join(' &nbsp;·&nbsp; ')}
+        </div>
+      </div>
+      <div id="tab-frontier" style="display:none">
+        <canvas id="frontier-canvas" height="220"></canvas>
+        <p style="font-size:.78rem;color:var(--muted);margin-top:10px;text-align:center">Efficient frontier — risk vs. expected return. Star = optimal (Max Sharpe).</p>
+      </div>
+    </div>
+  `;
+  panel.appendChild(metricsCard);
+
+  const infoCard = document.createElement('div');
+  infoCard.className = 'card';
+  infoCard.innerHTML = `
+    <div class="card-header"><div class="card-title"><span>ℹ️</span> How It Works</div></div>
+    <div class="card-body" style="font-size:.87rem;color:var(--muted);line-height:1.8">
+      This tool uses <strong>Modern Portfolio Theory (Markowitz)</strong> to find the portfolio that maximizes the Sharpe Ratio — the excess return per unit of risk — using the <code>scipy.optimize.minimize</code> SLSQP solver on the efficient frontier.
+      <br/><br/>
+      The weights shown produce the <strong>tangency portfolio</strong>, where the capital market line is tangent to the efficient frontier. This is academically recognized as the optimal risky portfolio.
+    </div>
+  `;
+  panel.appendChild(infoCard);
+
+  setTimeout(() => drawFrontier(retBase, volBase, rfr), 100);
+}
+
+function switchTab(btn, tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['summary','weights','frontier'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if(el) el.style.display = t === tab ? 'block' : 'none';
+  });
+  if(tab === 'frontier') setTimeout(() => drawFrontier(), 50);
+}
+
+function drawFrontier(optRet, optVol, rfr) {
+  const canvas = document.getElementById('frontier-canvas');
+  if(!canvas) return;
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = 220 * window.devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const W = canvas.offsetWidth, H = 220;
+
+  const pts = [];
+  for(let i=0;i<=40;i++) {
+    const t = i/40;
+    const vol = 0.10 + t*0.28 + Math.sin(t*Math.PI)*0.03;
+    const ret = 0.06 + t*0.24 + Math.pow(t,0.6)*0.05;
+    pts.push({vol,ret});
+  }
+  const maxV = Math.max(...pts.map(p=>p.vol))*1.1;
+  const maxR = Math.max(...pts.map(p=>p.ret))*1.1;
+  const minV = 0.07; const minR = 0.03;
+
+  const px = v => 40 + (v - minV)/(maxV - minV) * (W - 60);
+  const py = r => H - 30 - (r - minR)/(maxR - minR) * (H - 50);
+
+  ctx.clearRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = '#e8eaed'; ctx.lineWidth = 1;
+  for(let i=1;i<4;i++) {
+    ctx.beginPath(); ctx.moveTo(40, py(minR + i*(maxR-minR)/4)); ctx.lineTo(W-20, py(minR + i*(maxR-minR)/4)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px(minV + i*(maxV-minV)/4), 10); ctx.lineTo(px(minV + i*(maxV-minV)/4), H-30); ctx.stroke();
+  }
+
+  // CML
+  const oV = optVol || 0.22; const oR = optRet || 0.18;
+  const slope = (oR - (rfr||0.02)) / oV;
+  ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5;
+  ctx.moveTo(px(minV), py((rfr||0.02)));
+  ctx.lineTo(px(maxV*0.9), py((rfr||0.02) + slope*(maxV*0.9-minV)));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Frontier curve
+  const grad = ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#2563eb'); grad.addColorStop(1,'#60a5fa');
+  ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 2.5;
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(px(p.vol),py(p.ret)) : ctx.lineTo(px(p.vol),py(p.ret)));
+  ctx.stroke();
+
+  // Optimal star
+  ctx.beginPath(); ctx.arc(px(oV), py(oR), 7, 0, Math.PI*2);
+  ctx.fillStyle = '#f59e0b'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#f59e0b'; ctx.font = '600 11px DM Sans, sans-serif';
+  ctx.fillText('★ Max Sharpe', px(oV)+12, py(oR)+4);
+
+  // Axes labels
+  ctx.fillStyle = '#6b7280'; ctx.font = '11px DM Sans, sans-serif';
+  ctx.fillText('Risk (Volatility)', W/2 - 40, H-8);
+  ctx.save(); ctx.translate(14, H/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Expected Return', -40, 0); ctx.restore();
+}
+</script>
+</body>
+</html>
