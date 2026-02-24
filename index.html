@@ -633,7 +633,7 @@ async function submitContact() {
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://formspree.io/f/xnnqakbb', {
+    const res = await fetch('https://formspree.io/f/maqdanda', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ name: nameVal, email: emailVal, message: msgVal })
@@ -809,7 +809,7 @@ function selectTime(el, days) {
 // Example: const API_URL = '';  // ← PASTE YOUR RENDER API URL e.g. 'https://portfolioptimzer.onrender.com'
 // Leave empty to use simulated math (no backend needed)
 // ─────────────────────────────────────────────────────────────
-const API_URL = '';  // ← PASTE YOUR RENDER API URL HERE
+const API_URL = 'https://portfolioptimzer.onrender.com';  // ← PASTE YOUR RENDER API URL HERE
 
 async function runOptimization() {
   const tickers = [...activeTickers];
