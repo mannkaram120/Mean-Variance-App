@@ -628,7 +628,7 @@ async function submitContact() {
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://formspree.io/f/xnnqakbb', {
+    const res = await fetch('https://formspree.io/f/maqdanda', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ name: nameVal, email: emailVal, message: msgVal })
@@ -844,7 +844,7 @@ setTimeout(() => {
 })();
 
 
-const API_URL = '';  // ← PASTE YOUR RENDER API URL HERE
+const API_URL = 'https://portfolioptimzer.onrender.com';  // ← PASTE YOUR RENDER API URL HERE
 
 async function runOptimization() {
   const tickers = window._getActiveTickers ? window._getActiveTickers() : [];
