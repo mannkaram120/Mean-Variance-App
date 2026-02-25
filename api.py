@@ -1,194 +1,116 @@
-"""
-api.py — Flask REST API for the portfolio optimizer HTML frontend.
-Has its own yfinance download function (bypasses st.cache_data decorator in app.py).
-"""
-
-import os
-import hashlib
-import json
-import time
-import traceback
-from datetime import date, timedelta
-
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import yfinance as yf
 import numpy as np
 import pandas as pd
-import yfinance as yf
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-
-# Import only the pure-math functions from app.py (no Streamlit decorators)
-from app import (
-    build_efficient_frontier,
-    compute_annual_metrics,
-    max_sharpe_weights,
-    portfolio_return,
-    portfolio_volatility,
-)
+from scipy.optimize import minimize
+from datetime import date, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
-# ── In-memory cache: same request returns instantly within 1 hour
-_cache = {}
-CACHE_TTL = 3600
-
-
-def make_key(tickers, rfr, frequency, period_days, allow_short):
-    raw = json.dumps([sorted(tickers), rfr, frequency, period_days, allow_short])
-    return hashlib.md5(raw.encode()).hexdigest()
-
-
-def get_cached(key):
-    if key in _cache:
-        ts, data = _cache[key]
-        if time.time() - ts < CACHE_TTL:
-            return data
-        del _cache[key]
-    return None
-
-
-def set_cached(key, data):
-    if len(_cache) >= 50:
-        oldest = min(_cache, key=lambda k: _cache[k][0])
-        del _cache[oldest]
-    _cache[key] = (time.time(), data)
-
-
-def download_prices(tickers: list, start_date: date, end_date: date) -> pd.DataFrame:
-    """
-    Download adjusted close prices using yfinance.
-    Uses auto_adjust=True which is the correct approach for newer yfinance versions.
-    Returns a DataFrame with tickers as columns and dates as index.
-    """
-    data = yf.download(
-        tickers=tickers,
-        start=start_date.strftime("%Y-%m-%d"),
-        end=end_date.strftime("%Y-%m-%d"),
-        auto_adjust=True,      # gives adjusted prices directly in "Close"
-        progress=False,
-        threads=True,
-    )
-
-    if data.empty:
-        raise ValueError("No data returned from yfinance. Check ticker symbols.")
-
-    # With auto_adjust=True, prices are in "Close" column
-    if isinstance(data.columns, pd.MultiIndex):
-        prices = data["Close"].copy()
-    else:
-        # Single ticker returns flat DataFrame
-        prices = data[["Close"]].copy()
-        prices.columns = [tickers[0]]
-
-    # Drop columns/rows that are all NaN
-    prices = prices.dropna(axis=1, how="all").dropna(how="all")
-
-    if prices.empty:
-        raise ValueError(
-            "No valid price data found. Tickers may be invalid or "
-            "have no data in the selected date range."
-        )
-
-    if prices.shape[1] < 2:
-        raise ValueError(
-            f"Only got data for {prices.shape[1]} ticker(s). "
-            "Need at least 2 valid tickers to optimize."
-        )
-
-    return prices
-
-
-@app.route("/health", methods=["GET"])
+@app.route('/', methods=['GET'])
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({'status': 'ok', 'message': 'Portfolio Optimizer API running'})
 
-
-@app.route("/optimise", methods=["POST"])
-def optimise():
+@app.route('/optimize', methods=['POST'])
+def optimize():
     try:
         body        = request.get_json(force=True)
-        tickers     = [t.strip().upper() for t in body.get("tickers", [])]
-        rfr         = float(body.get("rfr", 0.02))
-        frequency   = str(body.get("frequency", "252"))
-        period_days = int(body.get("period", 365))
-        allow_short = bool(body.get("allowShort", False))
+        tickers     = body.get('tickers', [])
+        days        = int(body.get('days', 365))
+        rfr         = float(body.get('risk_free_rate', 0.02))
+        frequency   = int(body.get('frequency', 252))
+        allow_short = bool(body.get('allow_short', False))
 
         if len(tickers) < 2:
-            return jsonify({"error": "Need at least 2 tickers"}), 400
-        if len(tickers) > 20:
-            return jsonify({"error": "Maximum 20 tickers supported"}), 400
+            return jsonify({'error': 'Need at least 2 tickers'}), 400
 
-        # Return cached result instantly if available
-        ck     = make_key(tickers, rfr, frequency, period_days, allow_short)
-        cached = get_cached(ck)
-        if cached:
-            cached["cached"] = True
-            return jsonify(cached)
+        end_date   = date.today()
+        start_date = end_date - timedelta(days=days)
 
-        freq_map         = {"252": 252, "52": 52, "12": 12}
-        periods_per_year = freq_map.get(frequency, 252)
-        end_date         = date.today()
-        start_date       = end_date - timedelta(days=period_days)
+        raw = yf.download(
+            tickers=tickers,
+            start=start_date.isoformat(),
+            end=end_date.isoformat(),
+            auto_adjust=True,
+            progress=False
+        )
 
-        # Download prices using our own function (not app.py's st.cache_data version)
-        prices_df     = download_prices(tickers, start_date, end_date)
-        valid_tickers = list(prices_df.columns)
-        n             = len(valid_tickers)
+        if raw.empty:
+            return jsonify({'error': 'No data returned from yFinance. Check tickers.'}), 400
 
-        # Annualised μ and Σ
-        mean_returns, cov_matrix = compute_annual_metrics(prices_df, periods_per_year)
+        if isinstance(raw.columns, pd.MultiIndex):
+            prices = raw['Close']
+        else:
+            prices = raw[['Close']] if 'Close' in raw.columns else raw
+
+        prices = prices.dropna(axis=1, how='all').dropna(how='all')
+
+        if prices.shape[1] < 2:
+            return jsonify({'error': 'Not enough valid tickers with data'}), 400
+
+        valid_tickers = list(prices.columns)
+        returns = prices.pct_change().dropna()
+        mu      = returns.mean() * frequency
+        sigma   = returns.cov()  * frequency
+
+        n      = len(valid_tickers)
+        w0     = np.repeat(1.0 / n, n)
         bounds = tuple((-1.0, 1.0) if allow_short else (0.0, 1.0) for _ in range(n))
 
-        # Max Sharpe via SLSQP
-        opt_w      = max_sharpe_weights(mean_returns, cov_matrix, rfr, bounds)
-        opt_ret    = portfolio_return(opt_w, mean_returns)
-        opt_vol    = portfolio_volatility(opt_w, cov_matrix)
-        opt_sharpe = (opt_ret - rfr) / opt_vol if opt_vol > 0 else 0.0
+        def neg_sharpe(w):
+            ret = float(np.dot(w, mu))
+            vol = float(np.sqrt(w @ sigma.values @ w))
+            return -(ret - rfr) / vol if vol > 1e-10 else 1e10
 
-        # Equal-weight baseline
-        eq_w      = np.ones(n) / n
-        eq_ret    = portfolio_return(eq_w, mean_returns)
-        eq_vol    = portfolio_volatility(eq_w, cov_matrix)
-        eq_sharpe = (eq_ret - rfr) / eq_vol if eq_vol > 0 else 0.0
+        res = minimize(neg_sharpe, w0, method='SLSQP',
+                       bounds=bounds,
+                       constraints=[{'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}],
+                       options={'maxiter': 1000, 'ftol': 1e-9})
 
-        # Efficient frontier — 25 points (fast enough, smooth enough)
-        target_returns = np.linspace(float(mean_returns.min()), float(mean_returns.max()), num=25)
-        frontier_df    = build_efficient_frontier(mean_returns, cov_matrix, target_returns, rfr, bounds)
+        if not res.success:
+            return jsonify({'error': 'Optimisation failed: ' + res.message}), 500
 
-        frontier_pts = sorted(
-            [{"vol": float(r["target_volatility"]), "ret": float(r["target_return"])}
-             for _, r in frontier_df.iterrows()],
-            key=lambda p: p["vol"]
-        )
-        efficient, max_r = [], -1e9
-        for p in frontier_pts:
-            if p["ret"] >= max_r - 0.001:
-                efficient.append(p)
-                max_r = max(max_r, p["ret"])
+        opt_w   = res.x
+        opt_ret = float(np.dot(opt_w, mu))
+        opt_vol = float(np.sqrt(opt_w @ sigma.values @ opt_w))
+        opt_sr  = (opt_ret - rfr) / opt_vol if opt_vol > 0 else 0
 
-        result = {
-            "tickers":    valid_tickers,
-            "optWeights": opt_w.tolist(),
-            "optReturn":  float(opt_ret),
-            "optVol":     float(opt_vol),
-            "optSharpe":  float(opt_sharpe),
-            "eqReturn":   float(eq_ret),
-            "eqVol":      float(eq_vol),
-            "eqSharpe":   float(eq_sharpe),
-            "frontier":   efficient,
-            "mu":         mean_returns.tolist(),
-            "sigma":      [float(np.sqrt(cov_matrix.iloc[i, i])) for i in range(n)],
-            "cached":     False,
-        }
+        daily_ret = float(np.dot(opt_w, returns.mean()))
+        daily_vol = float(np.sqrt(opt_w @ returns.cov().values @ opt_w))
+        var_95    = -(daily_ret - 1.645 * daily_vol)
 
-        set_cached(ck, result)
-        return jsonify(result)
+        frontier = []
+        ret_range = np.linspace(float(mu.min()), float(mu.max()), 30)
+        for target in ret_range:
+            def port_vol(w):
+                return float(np.sqrt(w @ sigma.values @ w))
+            ef_res = minimize(port_vol, w0, method='SLSQP',
+                              bounds=bounds,
+                              constraints=[
+                                  {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0},
+                                  {'type': 'eq', 'fun': lambda w, t=target: float(np.dot(w, mu)) - t}
+                              ],
+                              options={'maxiter': 500})
+            if ef_res.success:
+                v = float(np.sqrt(ef_res.x @ sigma.values @ ef_res.x))
+                r = float(np.dot(ef_res.x, mu))
+                frontier.append({'vol': v, 'ret': r})
+
+        return jsonify({
+            'expected_return': opt_ret,
+            'volatility':      opt_vol,
+            'sharpe_ratio':    opt_sr,
+            'var_95':          var_95,
+            'weights':         {t: float(w) for t, w in zip(valid_tickers, opt_w)},
+            'frontier':        frontier,
+            'tickers_used':    valid_tickers,
+            'simulated':       False
+        })
 
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
