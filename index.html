@@ -240,7 +240,7 @@
 
 </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen" style="overflow-x:hidden">
 
 <!-- CURSOR -->
 <!-- TOP MARQUEE STRIP REMOVED -->
@@ -350,7 +350,6 @@
           </div>
 
           <p style="color:#444;font-size:.96rem;line-height:1.8;max-width:520px;margin-bottom:36px">
-            Most portfolios are built on guesswork. I build them on <strong style="color:#111">mathematics</strong>.<br><br>
             As an <strong style="color:#111">FRM candidate</strong>, I apply <strong style="color:#111">Modern Portfolio Theory</strong>, covariance-based risk models, and <strong style="color:#111">SLSQP optimization</strong> to turn noisy market data into precise, actionable investment decisions. The tool below isn't a demo — it runs on <strong style="color:#111">live market data</strong>.
           </p>
 
@@ -1345,3 +1344,32 @@ function drawFrontier(pts, data, rfr) {
     annotate(xp(eq.vol), yp(eq.ret), '#9467bd', 'diamond',
       'Equal Weight', 'SR: '+(eq.sr||0).toFixed(2), 0, 30);
   }
+
+  // Legend
+  function legendItem(color, shape, text, ox, oy) {
+    ctx.fillStyle=color;
+    var lx3=W-padR-148+ox, ly3=H-padB-88+oy;
+    if(shape==='circle'){ ctx.beginPath();ctx.arc(lx3+5,ly3+5,5,0,Math.PI*2);ctx.fill(); }
+    else if(shape==='star'){ ctx.save();ctx.translate(lx3+5,ly3+5);drawStar(ctx,0,0,6);ctx.fill();ctx.restore(); }
+    else if(shape==='triangle'){ ctx.beginPath();ctx.moveTo(lx3+5,ly3);ctx.lineTo(lx3+10,ly3+10);ctx.lineTo(lx3,ly3+10);ctx.closePath();ctx.fill(); }
+    else if(shape==='diamond'){ ctx.beginPath();ctx.moveTo(lx3+5,ly3);ctx.lineTo(lx3+10,ly3+5);ctx.lineTo(lx3+5,ly3+10);ctx.lineTo(lx3,ly3+5);ctx.closePath();ctx.fill(); }
+    else if(shape==='line'){ ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(lx3,ly3+5);ctx.lineTo(lx3+10,ly3+5);ctx.stroke();ctx.setLineDash([]);ctx.restore(); }
+    ctx.fillStyle='#444'; ctx.font='9.5px JetBrains Mono,monospace'; ctx.textAlign='left';
+    ctx.fillText(text, lx3+14, ly3+9);
+  }
+  var lbx=W-padR-152, lby=H-padB-94;
+  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.strokeStyle='#ddd'; ctx.lineWidth=1;
+  ctx.fillRect(lbx,lby,148,94); ctx.strokeRect(lbx,lby,148,94);
+  legendItem('#2ca02c','circle',  'Min Variance',   4, 6);
+  legendItem('#ff7f0e','star',    'Max Sharpe',      4, 24);
+  legendItem('#d62728','triangle','Max Return',      4, 42);
+  legendItem('#9467bd','diamond', 'Equal Weighted',  4, 60);
+  legendItem('#4aaa88','line',    'Capital Mkt Line',4, 78);
+}
+
+
+</script>
+
+
+</body>
+</html>
