@@ -657,7 +657,7 @@
         </div>
 
         <button id="optimize-btn"
-          onclick="if(window.runOptimization){window.runOptimization();}else{alert('Tool loading, please try again');}"
+          onclick="runOptimization()"
           style="width:100%;font-family:JetBrains Mono,monospace;font-weight:900;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;padding:15px;background:#111;color:#c8f135;border:2px solid #111;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;cursor:pointer">
           ⚡ OPTIMIZE PORTFOLIO
         </button>
@@ -796,10 +796,11 @@ setTimeout(() => {
   }
   setTimeout(nextLine, 2000);
 })();
-</script>
 
-<script>
+
 /* Portfolio Controls - pure ES5, no arrow functions, no template literals */
+var API_URL = 'https://mean-variance-app-5are.onrender.com';
+var runOptimization; /* hoisted — defined fully below after IIFE */
 (function() {
   var activeTickers = [];
   var selectedDays  = 365;
@@ -972,10 +973,6 @@ setTimeout(() => {
     init();
   }
 })();
-</script>
-
-<script>
-var API_URL = 'https://mean-variance-app-5are.onrender.com';
 
 function runOptimization() {
   var tickers = window._getActiveTickers ? window._getActiveTickers() : [];
@@ -1348,12 +1345,3 @@ function drawFrontier(pts, data, rfr) {
     annotate(xp(eq.vol), yp(eq.ret), '#9467bd', 'diamond',
       'Equal Weight', 'SR: '+(eq.sr||0).toFixed(2), 0, 30);
   }
-
-  // Legend
-  function legendItem(color, shape, text, ox, oy) {
-    ctx.fillStyle=color;
-    var lx3=W-padR-148+ox, ly3=H-padB-88+oy;
-    if(shape==='circle'){ ctx.beginPath();ctx.arc(lx3+5,ly3+5,5,0,Math.PI*2);ctx.fill(); }
-    else if(shape==='star'){ ctx.save();ctx.translate(lx3+5,ly3+5);drawStar(ctx,0,0,6);ctx.fill();ctx.restore(); }
-    else if(shape==='triangle'){ ctx.beginPath();ctx.moveTo(lx3+5,ly3);ctx.lineTo(lx3+10,ly3+10);ctx.lineTo(lx3,ly3+10);ctx.closePath();ctx.fill(); }
-    else if(shape==='diamond'){ ctx.beginPath();ctx.moveTo(lx3+5,ly3);ctx.lineTo(lx3+10,ly3+5);ctx.lineTo(lx3+5,ly3+10);ctx.lineTo(lx3,ly3+5);ctx.closePath
