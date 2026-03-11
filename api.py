@@ -35,7 +35,8 @@ def optimize():
             end=end_date.isoformat(),
             auto_adjust=True,
             progress=False,
-            group_by='ticker'
+            group_by='ticker',
+            threads=True
         )
 
         if raw is None or raw.empty:
@@ -126,20 +127,22 @@ def optimize():
         d_vol  = float(np.sqrt(w_sharpe @ returns.cov().values @ w_sharpe))
         var_95 = float(-(d_ret - 1.645 * d_vol))
 
-        # ── Efficient Frontier: 100 points from min-var return to max return
+        # ── Efficient Frontier: 40 points, warm-started, faster tolerance
         ret_lo = ret_minv
-        ret_hi = float(mu.max()) * (1.0 if allow_short else 1.0)
+        ret_hi = float(mu.max())
         frontier = []
-        for target in np.linspace(ret_lo, ret_hi, 100):
+        w_prev = w_minv.copy()  # warm start from min variance solution
+        for target in np.linspace(ret_lo, ret_hi, 40):
             def _vol(w): return float(np.sqrt(w @ sigma.values @ w))
-            ef = minimize(_vol, w0, method='SLSQP', bounds=bounds,
+            ef = minimize(_vol, w_prev, method='SLSQP', bounds=bounds,
                           constraints=[sum_con,
                                        {'type':'eq','fun': lambda w,t=target: float(w @ mu.values)-t}],
-                          options={'maxiter':300,'ftol':1e-7})
+                          options={'maxiter':100,'ftol':1e-6})
             if ef.success:
                 v = float(np.sqrt(ef.x @ sigma.values @ ef.x))
                 r = float(ef.x @ mu.values)
                 frontier.append({'vol': round(v,6), 'ret': round(r,6)})
+                w_prev = ef.x.copy()  # use solution as next warm start
 
         # Build weights dicts
         def w_dict(w): return {t: round(float(x),4) for t,x in zip(valid_tickers,w)}
