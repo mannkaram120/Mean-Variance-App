@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 CORS(app)
@@ -127,22 +128,35 @@ def optimize():
         d_vol  = float(np.sqrt(w_sharpe @ returns.cov().values @ w_sharpe))
         var_95 = float(-(d_ret - 1.645 * d_vol))
 
-        # ── Efficient Frontier: 40 points, warm-started, faster tolerance
+        # ── Efficient Frontier: 40 points computed in parallel
         ret_lo = ret_minv
         ret_hi = float(mu.max())
-        frontier = []
-        w_prev = w_minv.copy()  # warm start from min variance solution
-        for target in np.linspace(ret_lo, ret_hi, 40):
-            def _vol(w): return float(np.sqrt(w @ sigma.values @ w))
-            ef = minimize(_vol, w_prev, method='SLSQP', bounds=bounds,
+        targets = list(np.linspace(ret_lo, ret_hi, 40))
+
+        sigma_vals = sigma.values
+        mu_vals    = mu.values
+
+        def compute_point(target):
+            def _vol(w): return float(np.sqrt(w @ sigma_vals @ w))
+            ef = minimize(_vol, w_minv.copy(), method='SLSQP', bounds=bounds,
                           constraints=[sum_con,
-                                       {'type':'eq','fun': lambda w,t=target: float(w @ mu.values)-t}],
+                                       {'type':'eq','fun': lambda w,t=target: float(w @ mu_vals)-t}],
                           options={'maxiter':100,'ftol':1e-6})
             if ef.success:
-                v = float(np.sqrt(ef.x @ sigma.values @ ef.x))
-                r = float(ef.x @ mu.values)
-                frontier.append({'vol': round(v,6), 'ret': round(r,6)})
-                w_prev = ef.x.copy()  # use solution as next warm start
+                v = float(np.sqrt(ef.x @ sigma_vals @ ef.x))
+                r = float(ef.x @ mu_vals)
+                return {'vol': round(v,6), 'ret': round(r,6), '_t': target}
+            return None
+
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            raw_results = list(ex.map(compute_point, targets))
+
+        # Filter, sort by return to ensure smooth curve
+        frontier = sorted(
+            [r for r in raw_results if r is not None],
+            key=lambda x: x['ret']
+        )
+        frontier = [{'vol': p['vol'], 'ret': p['ret']} for p in frontier]
 
         # Build weights dicts
         def w_dict(w): return {t: round(float(x),4) for t,x in zip(valid_tickers,w)}
