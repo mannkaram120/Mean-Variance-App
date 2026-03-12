@@ -6,9 +6,85 @@ import pandas as pd
 from scipy.optimize import minimize
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+import time
+from urllib.request import urlopen
+from xml.etree import ElementTree as ET
 
 app = Flask(__name__)
 CORS(app)
+
+CACHE_TTL_SECONDS = 600
+OPTIMIZE_CACHE = {}
+CACHE_LOCK = Lock()
+RISK_FREE_CACHE_TTL_SECONDS = 21600
+RISK_FREE_CACHE = None
+
+TREASURY_1Y_XML_URL = 'https://home.treasury.gov/sites/default/files/interest-rates/yield.xml'
+
+
+def _find_latest_1y_treasury_rate():
+    with urlopen(TREASURY_1Y_XML_URL, timeout=10) as resp:
+        xml_bytes = resp.read()
+
+    root = ET.fromstring(xml_bytes)
+    latest_date = None
+    latest_rate = None
+
+    for entry in root.iter():
+        if not entry.tag.endswith('entry'):
+            continue
+
+        entry_date = None
+        entry_rate = None
+
+        for node in entry.iter():
+            tag = node.tag.split('}')[-1]
+            text = (node.text or '').strip()
+            if not text:
+                continue
+            if tag == 'NEW_DATE':
+                entry_date = text
+            elif tag == 'BC_1YEAR':
+                try:
+                    entry_rate = float(text)
+                except ValueError:
+                    entry_rate = None
+
+        if entry_date and entry_rate is not None:
+            if latest_date is None or entry_date > latest_date:
+                latest_date = entry_date
+                latest_rate = entry_rate
+
+    if latest_rate is None:
+        raise ValueError('Unable to extract latest 1-year Treasury yield')
+
+    return {
+        'rate_percent': round(latest_rate, 2),
+        'rate_decimal': round(latest_rate / 100.0, 6),
+        'source': 'U.S. Treasury Daily Par Yield Curve',
+        'as_of': latest_date[:10] if latest_date else None
+    }
+
+
+@app.route('/risk-free-rate', methods=['GET'])
+def risk_free_rate():
+    global RISK_FREE_CACHE
+    now_ts = time.time()
+
+    with CACHE_LOCK:
+        if RISK_FREE_CACHE and RISK_FREE_CACHE['expires_at'] > now_ts:
+            return jsonify(RISK_FREE_CACHE['payload'])
+
+    payload = _find_latest_1y_treasury_rate()
+
+    with CACHE_LOCK:
+        RISK_FREE_CACHE = {
+            'payload': payload,
+            'expires_at': now_ts + RISK_FREE_CACHE_TTL_SECONDS
+        }
+
+    return jsonify(payload)
 
 @app.route('/', methods=['GET'])
 def health():
@@ -29,6 +105,23 @@ def optimize():
 
         end_date   = date.today()
         start_date = end_date - timedelta(days=days)
+        cache_key = (
+            tuple(tickers),
+            days,
+            round(rfr, 6),
+            frequency,
+            allow_short,
+            end_date.isoformat()
+        )
+
+        now_ts = time.time()
+        with CACHE_LOCK:
+            cached_entry = OPTIMIZE_CACHE.get(cache_key)
+            if cached_entry and cached_entry['expires_at'] > now_ts:
+                return jsonify(cached_entry['payload'])
+            expired_keys = [k for k, v in OPTIMIZE_CACHE.items() if v['expires_at'] <= now_ts]
+            for k in expired_keys:
+                del OPTIMIZE_CACHE[k]
 
         raw = yf.download(
             tickers=' '.join(tickers),
@@ -158,10 +251,42 @@ def optimize():
         )
         frontier = [{'vol': p['vol'], 'ret': p['ret']} for p in frontier]
 
+        # ── Monte Carlo: 10,000 random portfolios — fully vectorised (no loop)
+        N_SIM = 10000
+        if not allow_short:
+            rnd = np.random.dirichlet(np.ones(n), size=N_SIM)
+        else:
+            batches = []
+            accepted = 0
+            batch_size = max(20000, N_SIM * 2)
+            while accepted < N_SIM:
+                trial = np.random.uniform(-1.0, 1.0, size=(batch_size, n - 1))
+                last_col = 1.0 - trial.sum(axis=1, keepdims=True)
+                valid = np.abs(last_col[:, 0]) <= 1.0
+                if np.any(valid):
+                    batch = np.hstack([trial[valid], last_col[valid]])
+                    batches.append(batch)
+                    accepted += batch.shape[0]
+            rnd = np.vstack(batches)[:N_SIM]
+        # Portfolio returns: (N_SIM,)
+        mc_ret = rnd @ mu_vals
+        # Portfolio vols: sqrt of (w @ sigma @ w) for each row — vectorised
+        mc_vol = np.sqrt(np.einsum('ij,jk,ik->i', rnd, sigma_vals, rnd))
+        mc_sr  = (mc_ret - rfr) / np.where(mc_vol > 1e-10, mc_vol, 1e-10)
+
+        # Downsample to 2000 points for payload size — keep distribution shape
+        idx     = np.random.choice(N_SIM, size=min(2000, N_SIM), replace=False)
+        mc_cloud = [
+            {'vol': round(float(mc_vol[i]),5),
+             'ret': round(float(mc_ret[i]),5),
+             'sr':  round(float(mc_sr[i]), 4)}
+            for i in idx
+        ]
+
         # Build weights dicts
         def w_dict(w): return {t: round(float(x),4) for t,x in zip(valid_tickers,w)}
 
-        return jsonify({
+        response_payload = {
             # Primary result (Max Sharpe)
             'expected_return': round(ret_sharpe, 6),
             'volatility':      round(vol_sharpe, 6),
@@ -189,9 +314,18 @@ def optimize():
             },
 
             'frontier':     frontier,
+            'mc_cloud':     mc_cloud,
             'tickers_used': valid_tickers,
             'simulated':    False
-        })
+        }
+
+        with CACHE_LOCK:
+            OPTIMIZE_CACHE[cache_key] = {
+                'payload': response_payload,
+                'expires_at': now_ts + CACHE_TTL_SECONDS
+            }
+
+        return jsonify(response_payload)
 
     except Exception as e:
         import traceback
