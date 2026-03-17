@@ -304,19 +304,29 @@ def _fetch_cached_prices(tickers, start_date, end_date, cache_prefix, cache_scop
         end_for_yf = (pd.to_datetime(end_date) + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
         close_series = {}
         for ticker in tickers:
-            try:
-                hist = yf.Ticker(ticker).history(
-                    start=start_date, end=end_for_yf, auto_adjust=True
-                )
-                if hist is not None and not hist.empty and 'Close' in hist.columns:
-                    close_series[ticker] = hist['Close']
-                    print(f"[YF]   {ticker}: {len(hist)} rows, "
-                          f"{hist.index[0].strftime('%Y-%m-%d')} to {hist.index[-1].strftime('%Y-%m-%d')}")
-                else:
-                    col_info = list(hist.columns) if hist is not None and not hist.empty else 'empty'
-                    print(f"[YF]   {ticker}: no Close data (cols={col_info})")
-            except Exception as e:
-                print(f"[YF]   {ticker}: ERROR {e}")
+            for attempt in range(2):  # Two attempts per ticker
+                try:
+                    hist = yf.Ticker(ticker).history(
+                        start=start_date, end=end_for_yf, auto_adjust=True, timeout=30
+                    )
+                    if hist is not None and not hist.empty and 'Close' in hist.columns:
+                        close_series[ticker] = hist['Close']
+                        print(f"[YF]   {ticker}: {len(hist)} rows, "
+                              f"{hist.index[0].strftime('%Y-%m-%d')} to {hist.index[-1].strftime('%Y-%m-%d')}")
+                        break  # Success, move to next ticker
+                    else:
+                        col_info = list(hist.columns) if hist is not None and not hist.empty else 'empty'
+                        if attempt == 0:
+                            print(f"[YF]   {ticker}: no Close data (cols={col_info}), retrying...")
+                            time.sleep(1)  # Brief delay before retry
+                        else:
+                            print(f"[YF]   {ticker}: no Close data (cols={col_info})")
+                except Exception as e:
+                    if attempt == 0:
+                        print(f"[YF]   {ticker}: ERROR {e}, retrying...")
+                        time.sleep(1)
+                    else:
+                        print(f"[YF]   {ticker}: ERROR {e}")
 
         if not close_series:
             raise ValueError('No price data returned. Check your tickers.')
