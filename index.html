@@ -1299,6 +1299,14 @@ setTimeout(() => {
 
 /* Portfolio Controls - pure ES5, no arrow functions, no template literals */
 var API_URL = (window.location.protocol === 'file:' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') ? 'http://127.0.0.1:5000' : 'https://mean-variance-app-5are.onrender.com';
+
+// Auto-redirect to portfolio optimizer when accessing mpt subdomain
+window.addEventListener('load', function() {
+    if (window.location.hostname === 'mpt.karamfrm.com') {
+        showPage('portfolio');
+    }
+});
+
 var runOptimization; /* hoisted â€” defined fully below after IIFE */
 (function() {
   var activeTickers = [];
