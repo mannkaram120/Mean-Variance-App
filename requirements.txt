@@ -1,7 +1,8 @@
+pandas>=2.1.0
+numpy>=1.24.0
+scipy>=1.11.0
+yfinance>=0.2.30
 flask>=3.0.0
 flask-cors>=4.0.0
-yfinance>=0.2.30
-numpy>=1.24.0
-pandas>=2.1.0
-scipy>=1.11.0
-gunicorn>=21.0.0
+scikit-learn>=1.4.0
+gunicorn>=21.2.0
