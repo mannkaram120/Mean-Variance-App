@@ -397,6 +397,31 @@ def _fetch_cached_prices(tickers, start_date, end_date, cache_prefix, cache_scop
     return prices
 
 
+def _redistribute_weights_for_available(weights, available_assets, positive_target, negative_target):
+    pos_avail = 0.0
+    neg_avail = 0.0
+    for ticker in available_assets:
+        w = float(weights.get(ticker, 0.0))
+        if w > 0:
+            pos_avail += w
+        elif w < 0:
+            neg_avail += w
+
+    pos_scale = (positive_target / pos_avail) if pos_avail > 1e-12 else None
+    neg_scale = (negative_target / neg_avail) if neg_avail < -1e-12 else None
+
+    redistributed = {}
+    for ticker in available_assets:
+        w = float(weights.get(ticker, 0.0))
+        if w > 0 and pos_scale is not None:
+            redistributed[ticker] = w * pos_scale
+        elif w < 0 and neg_scale is not None:
+            redistributed[ticker] = w * neg_scale
+        else:
+            redistributed[ticker] = w
+    return redistributed
+
+
 @app.route('/risk-free-rate', methods=['GET'])
 def risk_free_rate():
     global RISK_FREE_CACHE
@@ -497,21 +522,22 @@ def stress_test():
                 'error': 'Insufficient data for this stress test scenario.'
             }), 200
 
-        original_weight_sum = sum(float(weights.get(ticker, 0.0)) for ticker in tickers)
-        available_weight_sum = sum(float(weights.get(ticker, 0.0)) for ticker in available_assets)
-        optimized_run_exists = original_weight_sum > 1e-12
+        positive_weight_sum = sum(max(0.0, float(weights.get(ticker, 0.0))) for ticker in tickers)
+        negative_weight_sum = sum(min(0.0, float(weights.get(ticker, 0.0))) for ticker in tickers)
+        optimized_weight_abs = sum(abs(float(weights.get(ticker, 0.0))) for ticker in tickers)
+        available_abs_sum = sum(abs(float(weights.get(ticker, 0.0))) for ticker in available_assets)
+        optimized_run_exists = optimized_weight_abs > 1e-12
 
-        if optimized_run_exists and missing_assets and available_weight_sum > 1e-12:
-            redistributed_weights = {
-                ticker: float(weights.get(ticker, 0.0)) / available_weight_sum for ticker in available_assets
-            }
+        if optimized_run_exists and missing_assets and available_abs_sum > 1e-12:
+            redistributed_weights = _redistribute_weights_for_available(
+                weights, available_assets, positive_weight_sum, negative_weight_sum)
             weight_mode = 'redistributed'
             excluded_text = ', '.join(missing_assets)
             warnings = [
                 '⚠ ' + excluded_text + ' has no data for this scenario and has been excluded from stress test. '
                 + 'Weights redistributed proportionally among available tickers.'
             ]
-        elif optimized_run_exists and missing_assets and available_weight_sum <= 1e-12:
+        elif optimized_run_exists and missing_assets and available_abs_sum <= 1e-12:
             redistributed_weights = {ticker: 1.0 / len(available_assets) for ticker in available_assets}
             weight_mode = 'equal_weight_fallback'
             excluded_text = ', '.join(missing_assets)
@@ -843,7 +869,8 @@ def optimize():
             while accepted < N_SIM:
                 trial = np.random.uniform(-1.0, 1.0, size=(batch_size, n - 1))
                 last_col = 1.0 - trial.sum(axis=1, keepdims=True)
-                valid = np.abs(last_col[:, 0]) <= 1.0
+                within_bounds = np.all(np.abs(trial) <= 1.0, axis=1)
+                valid = within_bounds & (np.abs(last_col[:, 0]) <= 1.0)
                 if np.any(valid):
                     batch = np.hstack([trial[valid], last_col[valid]])
                     batches.append(batch)
