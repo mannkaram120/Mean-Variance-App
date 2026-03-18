@@ -46,6 +46,52 @@ STRESS_SCENARIO_CONTEXT = {
 }
 
 
+def covariance_condition_number(sigma):
+    arr = np.asarray(sigma)
+    eigs = np.linalg.eigvalsh(arr)
+    min_eig = max(float(eigs[0]), 1e-12)
+    return round(float(eigs[-1] / min_eig), 2)
+
+
+def _instability_interpretation(mvo_score, bl_score, mvo_weights, bl_weights, tickers):
+
+    mvo_weights = mvo_weights or {}
+    bl_weights = bl_weights or {}
+
+    mvo_max_w = max(mvo_weights.values()) if mvo_weights else 0.0
+    bl_max_w = max(bl_weights.values()) if bl_weights else 0.0
+    mvo_concentrated = mvo_max_w > 0.95
+    bl_concentrated = bl_max_w > 0.95
+
+    mvo_dominant = max(mvo_weights, key=mvo_weights.get) if mvo_concentrated else None
+    bl_dominant = max(bl_weights, key=bl_weights.get) if bl_concentrated else None
+
+    if mvo_concentrated and not bl_concentrated:
+        return (
+            f"MVO scores {mvo_score:.4f} because it allocated {mvo_max_w*100:.0f}% to "
+            f"{mvo_dominant} — a corner solution pinned at a constraint boundary. "
+            f"Perturbations cannot move weights that are already at the wall. "
+            f"LW+BL scores {bl_score:.4f} because its diversified allocation has room to shift "
+            f"under input changes, which reflects genuine sensitivity, not instability."
+        )
+    elif bl_concentrated and not mvo_concentrated:
+        return (
+            f"LW+BL scores {bl_score:.4f} due to a concentrated allocation in {bl_dominant}. "
+            f"MVO's diversified weights are more sensitive to perturbations, scoring {mvo_score:.4f}."
+        )
+    elif mvo_score < bl_score:
+        return (
+            f"MVO scores lower ({mvo_score:.4f} vs {bl_score:.4f}). Both are interior solutions — "
+            f"LW+BL weights shift more under perturbation, likely due to flatter Sharpe surface "
+            f"from BL return shrinkage toward equilibrium."
+        )
+    else:
+        return (
+            f"LW+BL scores lower ({bl_score:.4f} vs {mvo_score:.4f}), consistent with "
+            f"Ledoit-Wolf shrinkage improving covariance conditioning and stabilising weight solutions."
+        )
+
+
 def _get_treasury_1y_xml_url():
     return (
         'https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml'
@@ -681,6 +727,7 @@ def optimize():
         # Annualised stats
         mu    = returns.mean() * frequency
         sigma = returns.cov()  * frequency
+        cond_sample = covariance_condition_number(sigma.values)
         n     = len(valid_tickers)
 
         w0     = np.repeat(1.0 / n, n)
@@ -826,11 +873,13 @@ def optimize():
         lw_portfolio_payload = None
         lw_cov = None
         lw_shrinkage = None
+        cond_lw = None
         if LedoitWolf is not None:
             try:
                 lw = LedoitWolf().fit(returns_subset.values)
                 lw_cov = pd.DataFrame(lw.covariance_ * frequency, index=valid_tickers, columns=valid_tickers)
                 print("LW fitted. lw_cov shape:", lw_cov.shape, "shrinkage:", round(float(lw.shrinkage_), 4))
+                cond_lw = covariance_condition_number(lw_cov.values)
                 lw_diag = np.sqrt(np.clip(np.diag(lw_cov.values), 1e-12, None))
                 lw_corr = lw_cov.div(lw_diag, axis=0).div(lw_diag, axis=1)
                 lw_corr_payload = _corr_payload_from_frame(lw_corr)
@@ -914,7 +963,7 @@ def optimize():
 
                     # BL Daily VaR
                     d_ret_bl = float(w_bl @ returns_subset.mean().values)
-                    d_vol_bl = float(np.sqrt(w_bl @ returns_subset.cov().values @ w_bl))
+                    d_vol_bl = float(np.sqrt(w_bl @ lw_cov.values @ w_bl))
                     var_95_bl = float(-(d_ret_bl - 1.645 * d_vol_bl))
 
                     # Equilibrium returns for display
@@ -956,17 +1005,19 @@ def optimize():
         instability_payload = None
         try:
             mvo_instab = compute_instability_score(
-                mu_vals, sigma_vals, w_sharpe, bounds, sum_con, rfr, n_perturb=5)
+                mu_vals, sigma_vals, w_sharpe, bounds, sum_con, rfr, n_perturb=50)
             bl_instab = None
             if bl_payload is not None and 'mu_bl' in locals():
                 bl_w_arr = np.array(
                     [float(bl_payload['weights'].get(t, 0)) for t in valid_tickers])
                 bl_instab = compute_instability_score(
                     mu_bl.values, lw_cov.values, bl_w_arr,
-                    bounds, sum_con, rfr, n_perturb=5)
+                    bounds, sum_con, rfr, n_perturb=50)
             instability_payload = {
                 'mvo': round(mvo_instab, 4),
-                'bl': round(bl_instab, 4) if bl_instab is not None else None
+                'bl': round(bl_instab, 4) if bl_instab is not None else None,
+                'cond_sample': cond_sample,
+                'cond_lw': cond_lw
             }
         except Exception:
             instability_payload = None
@@ -1014,6 +1065,15 @@ def optimize():
             'instability': instability_payload,
             'bl_error': _bl_error if '_bl_error' in dir() else None,
         }
+
+        if instability_payload and bl_payload and instability_payload.get('bl') is not None:
+            instability_payload['caption'] = _instability_interpretation(
+                instability_payload['mvo'],
+                instability_payload['bl'],
+                response_payload['weights'],
+                bl_payload['weights'],
+                valid_tickers
+            )
 
         with CACHE_LOCK:
             OPTIMIZE_CACHE[cache_key] = {

@@ -2416,6 +2416,9 @@ function renderTab3(data) {
 
   // Section E — Instability Score Comparison
   var instData = data.instability || null;
+  var instCaption = instData && instData.caption ? instData.caption : 'Lower score = more stable weights under input perturbation.';
+  var condSampleDisplay = instData && instData.cond_sample != null ? instData.cond_sample.toFixed(2) : '—';
+  var condLwDisplay = instData && instData.cond_lw != null ? instData.cond_lw.toFixed(2) : '—';
   var sectionE =
     '<div class="neo-box" style="padding:18px 22px;margin-bottom:14px">'
     + '<div style="font-family:JetBrains Mono,monospace;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#666;margin-bottom:12px">// INSTABILITY SCORE COMPARISON</div>'
@@ -2424,7 +2427,10 @@ function renderTab3(data) {
       + '<div style="padding:16px;background:#f8f8f4;border:1px solid #e8e8e0;text-align:center"><div style="font-family:JetBrains Mono,monospace;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:8px">MVO INSTABILITY</div><div style="font-size:1.6rem;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (instData.mvo < 0.05 ? '#16a34a' : '#dc2626') + '">' + (instData.mvo || 0).toFixed(4) + '</div></div>'
       + '<div style="padding:16px;background:#f8f8f4;border:1px solid #e8e8e0;text-align:center"><div style="font-family:JetBrains Mono,monospace;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:8px">LW+BL INSTABILITY</div><div style="font-size:1.6rem;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (instData.bl != null && instData.bl < instData.mvo ? '#16a34a' : '#b45309') + '">' + (instData.bl != null ? instData.bl.toFixed(4) : '—') + '</div></div>'
       + '</div>'
-      + '<div style="font-size:.78rem;color:#555;line-height:1.6">Lower score = more stable weights under input perturbation. LW+BL is expected to score lower because shrinkage improves matrix conditioning.</div>'
+      + '<div style="font-size:.78rem;color:#555;line-height:1.6">' + instCaption + '</div>'
+      + '<div style="font-size:.72rem;color:#555;line-height:1.4;margin-top:8px">'
+        + 'Condition number (sample Σ vs LW Σ): <strong>' + condSampleDisplay + '</strong> / <strong>' + condLwDisplay + '</strong>'
+        + '</div>'
     ) : '<div style="color:#888;font-size:.82rem">Instability analysis unavailable.</div>')
     + '</div>';
 
@@ -3911,7 +3917,6 @@ function drawFrontier(pts, data, rfr, canvasId, wrapId, overlayPts) {
 
 </body>
 </html>
-
 
 
 
